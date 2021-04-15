@@ -50,6 +50,9 @@
     #include "libntruencrypt/ntru_crypto.h"
     #include <wolfssl/wolfcrypt/random.h>
 #endif
+#ifdef HAVE_LIBOQS
+    #include <oqs/kem.h>
+#endif
 
 #ifdef HAVE_QSH
     static int TLSX_AddQSHKey(QSHKey** list, QSHKey* key);
@@ -7098,6 +7101,104 @@ end:
     return ret;
 }
 
+#ifdef HAVE_LIBOQS
+/*
+*/
+static const char* OQS_ID2name(int id)
+{
+    switch (id) {
+        case WOLFSSL_KYBER512:      return OQS_KEM_alg_kyber_512;
+        case WOLFSSL_KYBER768:      return OQS_KEM_alg_kyber_768;
+        case WOLFSSL_KYBER1024:     return OQS_KEM_alg_kyber_1024;
+        case WOLFSSL_NTRU_HPS2048509: return OQS_KEM_alg_ntru_hps2048509;
+        case WOLFSSL_NTRU_HPS2048677: return OQS_KEM_alg_ntru_hps2048677;
+        case WOLFSSL_NTRU_HPS4096821: return OQS_KEM_alg_ntru_hps4096821;
+        case WOLFSSL_NTRU_HRSS701:  return OQS_KEM_alg_ntru_hrss701;
+        case WOLFSSL_LIGHTSABER:    return OQS_KEM_alg_saber_lightsaber;
+        case WOLFSSL_SABER:         return OQS_KEM_alg_saber_saber;
+        case WOLFSSL_FIRESABER:     return OQS_KEM_alg_saber_firesaber;
+        case WOLFSSL_KYBER90S512:   return OQS_KEM_alg_kyber_512_90s;
+        case WOLFSSL_KYBER90S768:   return OQS_KEM_alg_kyber_768_90s;
+        case WOLFSSL_KYBER90S1024:  return OQS_KEM_alg_kyber_1024_90s;
+        default:                    return NULL;
+    }
+}
+
+/* Create a key share entry using liboqs parameters group.
+ * Generates a key pair.
+ *
+ * ssl   The SSL/TLS object.
+ * kse   The key share entry object.
+ * returns 0 on success, otherwise failure.
+ */
+static int TLSX_KeyShare_GenOqsKey(WOLFSSL *ssl, KeyShareEntry* kse)
+{
+    int             ret = -1;
+    const char*     algName = NULL;
+    OQS_KEM*        kem = NULL;
+    uint8_t*        pubKey = NULL;
+    uint8_t*        privKey = NULL;
+
+    algName = OQS_ID2name(kse->group);
+    if (algName == NULL) {
+        WOLFSSL_MSG("Invalid OQS algorithm specified.");
+        return BAD_FUNC_ARG;
+    }
+
+    kem = OQS_KEM_new(algName);
+    if (kem == NULL) {
+        WOLFSSL_MSG("Error creating OQS KEM, ensure algorithm support"
+                    "was enabled in liboqs.");
+        return MEMORY_E;
+    }
+
+    pubKey = (uint8_t*)XMALLOC(kem->length_public_key, ssl->heap,
+                               DYNAMIC_TYPE_PUBLIC_KEY);
+    privKey = (uint8_t*)XMALLOC(kem->length_secret_key, ssl->heap,
+                                DYNAMIC_TYPE_PRIVATE_KEY);
+    if (pubKey == NULL || privKey == NULL) {
+        ret = MEMORY_E;
+        goto end;
+    }
+
+    if (OQS_KEM_keypair(kem, pubKey, privKey) != OQS_SUCCESS)
+        goto end;
+
+    kse->pubKey = pubKey;
+    kse->pubKeyLen = kem->length_public_key;
+    kse->key = privKey;
+
+#ifdef WOLFSSL_DEBUG_TLS
+    WOLFSSL_MSG("Public liboqs Key");
+    WOLFSSL_BUFFER(pubKey, kem->length_public_key);
+#endif
+
+end:
+    if (kem != NULL)
+            OQS_KEM_free(kem);
+    if (ret != 0) {
+        if (pubKey != NULL)
+            XFREE(pubKey, ssl->heap, DYNAMIC_TYPE_PUBLIC_KEY);
+        if (privKey != NULL)
+            XFREE(privKey, ssl->heap, DYNAMIC_TYPE_PRIVATE_KEY);
+    }
+
+    return ret;
+}
+
+/* Clears the liboqs key data.
+ *
+ * key  [in]  liboqs key object.
+ */
+static void liboqs_free(uint8_t* key)
+{
+    if (key != NULL) {
+        ForceZero(key, sizeof(key));
+        XFREE(key, ssl->heap, DYNAMIC_TYPE_TLSX);
+    }
+}
+#endif
+
 /* Generate a secret/key using the key share entry.
  *
  * ssl  The SSL/TLS object.
@@ -7112,6 +7213,11 @@ static int TLSX_KeyShare_GenKey(WOLFSSL *ssl, KeyShareEntry *kse)
         return TLSX_KeyShare_GenX25519Key(ssl, kse);
     if (kse->group == WOLFSSL_ECC_X448)
         return TLSX_KeyShare_GenX448Key(ssl, kse);
+#ifdef HAVE_LIBOQS
+    if (kse->group >= WOLFSSL_OQS_MIN &&
+        kse->group <= WOLFSSL_OQS_MAX)
+        return TLSX_KeyShare_GenOqsKey(ssl, kse);
+#endif
     return TLSX_KeyShare_GenEccKey(ssl, kse);
 }
 
@@ -7137,6 +7243,12 @@ static void TLSX_KeyShare_FreeAll(KeyShareEntry* list, void* heap)
                 wc_curve448_free((curve448_key*)current->key);
 #endif
             }
+#ifdef HAVE_LIBOQS
+            else if (current->group >= WOLFSSL_OQS_MIN &&
+                     current->group <= WOLFSSL_OQS_MAX) {
+                liboqs_free((uint8_t*)current->key);
+            }
+#endif
             else {
 #ifdef HAVE_ECC
                 wc_ecc_free((ecc_key*)(current->key));
@@ -7631,6 +7743,59 @@ static int TLSX_KeyShare_ProcessEcc(WOLFSSL* ssl, KeyShareEntry* keyShareEntry)
     return ret;
 }
 
+#ifdef HAVE_LIBOQS
+/* Process the liboqs key share extension on the client side.
+ *
+ * ssl            The SSL/TLS object.
+ * keyShareEntry  The key share entry object to use to calculate shared secret.
+ * returns 0 on success and other values indicate failure.
+ */
+static int TLSX_KeyShare_ProcessOqs(WOLFSSL* ssl, KeyShareEntry* keyShareEntry)
+{
+    int             ret = -1;
+    const char*     algName = NULL;
+    OQS_KEM*        kem = NULL;
+    uint8_t*        sharedSecret = NULL;
+
+    algName = OQS_ID2name(keyShareEntry->group);
+    if (algName == NULL) {
+        WOLFSSL_MSG("Invalid OQS algorithm specified.");
+        return BAD_FUNC_ARG;
+    }
+
+    kem = OQS_KEM_new(algName);
+    if (kem == NULL) {
+        WOLFSSL_MSG("Error creating OQS KEM, ensure algorithm support"
+                    "was enabled in liboqs.");
+        return MEMORY_E;
+    }
+
+    sharedSecret = (uint8_t*)XMALLOC(kem->length_shared_secret,
+                                     ssl->heap, DYNAMIC_TYPE_TLSX);
+    if (sharedSecret == NULL) {
+        if (kem != NULL)
+            OQS_KEM_free(kem);
+        return MEMORY_E;
+    }
+
+    if (OQS_KEM_decaps(kem, sharedSecret, keyShareEntry->ke,
+                       keyShareEntry->key) != OQS_SUCCESS)
+        goto end;
+
+    ssl->arrays->preMasterSecret = sharedSecret;
+    ssl->arrays->preMasterSz = kem->length_shared_secret;
+
+    ret = 0;
+
+end:
+    if (kem != NULL) {
+        OQS_KEM_free(NULL);
+    }
+
+    return ret;
+}
+#endif
+
 /* Process the key share extension on the client side.
  *
  * ssl            The SSL/TLS object.
@@ -7651,6 +7816,11 @@ static int TLSX_KeyShare_Process(WOLFSSL* ssl, KeyShareEntry* keyShareEntry)
         ret = TLSX_KeyShare_ProcessX25519(ssl, keyShareEntry);
     else if (keyShareEntry->group == WOLFSSL_ECC_X448)
         ret = TLSX_KeyShare_ProcessX448(ssl, keyShareEntry);
+#ifdef HAVE_LIBOQS
+    else if (keyShareEntry->group >= WOLFSSL_OQS_MIN &&
+             keyShareEntry->group <= WOLFSSL_OQS_MAX)
+        ret = TLSX_KeyShare_ProcessOqs(ssl, keyShareEntry);
+#endif
     else
         ret = TLSX_KeyShare_ProcessEcc(ssl, keyShareEntry);
 
@@ -8065,6 +8235,22 @@ static int TLSX_KeyShare_IsSupported(int namedGroup)
             break;
         #endif /* !NO_ECC_SECP */
     #endif
+    #ifdef HAVE_LIBOQS
+        case WOLFSSL_KYBER512:
+        case WOLFSSL_KYBER768:
+        case WOLFSSL_KYBER1024:
+        case WOLFSSL_NTRU_HPS2048509:
+        case WOLFSSL_NTRU_HPS2048677:
+        case WOLFSSL_NTRU_HPS4096821:
+        case WOLFSSL_NTRU_HRSS701:
+        case WOLFSSL_LIGHTSABER:
+        case WOLFSSL_SABER:
+        case WOLFSSL_FIRESABER:
+        case WOLFSSL_KYBER90S512:
+        case WOLFSSL_KYBER90S768:
+        case WOLFSSL_KYBER90S1024:
+            break;
+    #endif
         default:
             return 0;
     }
@@ -8130,6 +8316,22 @@ static int TLSX_KeyShare_GroupRank(WOLFSSL* ssl, int group)
         #ifdef HAVE_FFDHE_8192
             ssl->group[ssl->numGroups++] = WOLFSSL_FFDHE_8192;
         #endif
+
+#ifdef HAVE_LIBOQS
+            ssl->group[ssl->numGroups++] = WOLFSSL_KYBER512;
+            ssl->group[ssl->numGroups++] = WOLFSSL_KYBER768;
+            ssl->group[ssl->numGroups++] = WOLFSSL_KYBER1024;
+            ssl->group[ssl->numGroups++] = WOLFSSL_NTRU_HPS2048509;
+            ssl->group[ssl->numGroups++] = WOLFSSL_NTRU_HPS2048677;
+            ssl->group[ssl->numGroups++] = WOLFSSL_NTRU_HPS4096821;
+            ssl->group[ssl->numGroups++] = WOLFSSL_NTRU_HRSS701;
+            ssl->group[ssl->numGroups++] = WOLFSSL_LIGHTSABER;
+            ssl->group[ssl->numGroups++] = WOLFSSL_SABER;
+            ssl->group[ssl->numGroups++] = WOLFSSL_FIRESABER;
+            ssl->group[ssl->numGroups++] = WOLFSSL_KYBER90S512;
+            ssl->group[ssl->numGroups++] = WOLFSSL_KYBER90S768;
+            ssl->group[ssl->numGroups++] = WOLFSSL_KYBER90S1024;
+#endif
     }
 
     for (i = 0; i < ssl->numGroups; i++)
