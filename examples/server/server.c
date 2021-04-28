@@ -111,6 +111,10 @@ int catastrophic = 0; /* Use with -x flag to still exit when an error is
                       */
 static int lng_index = 0;
 
+#ifdef HAVE_LIBOQS
+int liboqs_nametogroup(const char* name);
+#endif
+
 #ifdef WOLFSSL_CALLBACKS
     #if !defined(NO_OLD_TIMEVAL_NAME)
         Timeval srvTo;
@@ -221,6 +225,28 @@ static WC_INLINE int PeekSeq(const char* buf, word32* seq)
 
     return 0;
 }
+
+#ifdef HAVE_LIBOQS
+int liboqs_nametogroup(const char* name)
+{
+    switch (name) {
+        case "KYBER512":        return WOLFSSL_KYBER512;
+        case "KYBER768":        return WOLFSSL_KYBER768;
+        case "KYBER1024":       return WOLFSSL_KYBER1024;
+        case "NTRU_HPS2048509": return WOLFSSL_NTRU_HPS2048509;
+        case "NTRU_HPS2048677": return WOLFSSL_NTRU_HPS2048677;
+        case "NTRU_HPS4096821": return WOLFSSL_NTRU_HPS4096821;
+        case "NTRU_HRSS701":    return WOLFSSL_NTRU_HRSS701;
+        case "LIGHTSABER":      return WOLFSSL_LIGHTSABER;
+        case "SABER":           return WOLFSSL_SABER;
+        case "FIRESABER":       return WOLFSSL_FIRESABER;
+        case "KYBER90S512":     return WOLFSSL_KYBER90S512;
+        case "KYBER90S768":     return WOLFSSL_KYBER90S768;
+        case "KYBER90S1024":    return WOLFSSL_KYBER90S1024;
+        default:                return 0;
+    }
+}
+#endif
 
 
 /* The send embedded callback
@@ -584,7 +610,7 @@ static void ServerWrite(WOLFSSL* ssl, const char* output, int outputLen)
 #if defined(WOLFSSL_TLS13) && defined(HAVE_SUPPORTED_CURVES)
 #define MAX_GROUP_NUMBER 4
 static void SetKeyShare(WOLFSSL* ssl, int onlyKeyShare, int useX25519,
-                        int useX448)
+                        int useX448, int useLibOqs, char* oqsAlg)
 {
     int ret;
     int groups[MAX_GROUP_NUMBER] = {0};
@@ -623,6 +649,77 @@ static void SetKeyShare(WOLFSSL* ssl, int onlyKeyShare, int useX25519,
                 else
                     err_sys("unable to use curve x448");
             } while (ret == WC_PENDING_E);
+    #endif
+        }
+        else if (useLibOqs == 1) {
+    #ifdef HAVE_LIBOQS
+            if (XSTRNCMP(oqsAlg, "KYBER512", XSTRLEN("KYBER512")) == 0) {
+                groups[count] = WOLFSSL_KYBER512;
+            }
+            else if(XSTRNCMP(oqsAlg, "KYBER768",
+                                XSTRLEN("KYBER768")) == 0) {
+                groups[count] = WOLFSSL_KYBER768;
+            }
+            else if(XSTRNCMP(oqsAlg, "KYBER1024",
+                                XSTRLEN("KYBER1024")) == 0) {
+                groups[count] = WOLFSSL_KYBER1024;
+            }
+            else if(XSTRNCMP(oqsAlg, "NTRU_HPS2048509",
+                                XSTRLEN("NTRU_HPS2048509")) == 0)  {
+                groups[count] = WOLFSSL_NTRU_HPS2048509;
+            }
+            else if(XSTRNCMP(oqsAlg, "NTRU_HPS2048677",
+                                XSTRLEN("NTRU_HPS2048677")) == 0) { 
+                groups[count] = WOLFSSL_NTRU_HPS2048677;
+            }
+            else if(XSTRNCMP(oqsAlg, "NTRU_HPS4096821", 
+                                XSTRLEN("NTRU_HPS4096821")) == 0) {
+                groups[count] = WOLFSSL_NTRU_HPS4096821;
+            }
+            else if(XSTRNCMP(oqsAlg, "NTRU_HRSS701",
+                                XSTRLEN("NTRU_HRSS701")) == 0) {
+                groups[count] = WOLFSSL_NTRU_HRSS701;
+            }
+            else if(XSTRNCMP(oqsAlg, "LIGHTSABER",
+                                XSTRLEN("LIGHTSABER")) == 0) {
+                groups[count] = WOLFSSL_LIGHTSABER;
+            }
+            else if(XSTRNCMP(oqsAlg, "SABER",
+                                XSTRLEN("SABER")) == 0) {
+                groups[count] = WOLFSSL_SABER;
+            }
+            else if(XSTRNCMP(oqsAlg, "FIRESABER",
+                                XSTRLEN("FIRESABER")) == 0) {
+                groups[count] = WOLFSSL_FIRESABER;
+            }
+            else if(XSTRNCMP(oqsAlg, "KYBER90S512",
+                                XSTRLEN("KYBER90S512")) == 0) {
+                groups[count] = WOLFSSL_KYBER90S512;
+            }
+            else if(XSTRNCMP(oqsAlg, "KYBER90S768",
+                                XSTRLEN("KYBER90S768")) == 0) {
+                groups[count] = WOLFSSL_KYBER90S768;
+            }
+            else if(XSTRNCMP(oqsAlg, "KYBER90S1024",
+                                XSTRLEN("KYBER90S1024")) == 0) {
+                groups[count] = WOLFSSL_KYBER90S1024;
+            }
+            else {
+                groups[count] = 0;
+            }
+
+            printf("Using OQS KEM: %s\n", oqsAlg);
+            if (groups[count] == 0) {
+                err_sys("invalid oqs KEM specified");
+            }
+            else {
+                if (wolfSSL_UseKeyShare(ssl, groups[count]) == WOLFSSL_SUCCESS)
+                    count++;
+                else {
+                    groups[count] = 0;
+                    err_sys("unable to use oqs algorithm");
+                }
+            }
     #endif
         }
         else {
@@ -763,6 +860,12 @@ static const char* server_usage_msg[][58] = {
 #endif
 #ifdef HAVE_CURVE25519
         "-t          Pre-generate Key share using Curve25519 only\n",   /* 43 */
+#endif
+#ifdef HAVE_LIBOQS
+        "-7 <alg>    Pre-generate Key Share using specified liboqs algorithm only\n",    /* TBD */
+        "[KYBER512, KYBER768, KYBER1024, KYBER90S512, KYBER90S768, KYBER90S1024,\n",
+        " NTRU_HPS2048509, NTRU_HPS2048677, NTRU_HPS4096821, NTRU_HRSS701,\n",
+        " LIGHTSABER, SABER, FIRESABER]\n"
 #endif
 #endif /* WOLFSSL_TLS13 */
 #ifdef HAVE_SESSION_TICKET
@@ -1055,6 +1158,12 @@ static void Usage(void)
 #ifdef HAVE_CURVE25519
     printf("%s", msg[++msgId]);     /* -t */
 #endif
+#ifdef HAVE_LIBOQS
+    printf("%s", msg[++msgId]);     /* -7 */
+    printf("%s", msg[++msgId]);     /* -7 options */
+    printf("%s", msg[++msgId]);     /* more -7 options */
+    printf("%s", msg[++msgId]);     /* more -7 options */
+#endif
 #endif /* WOLFSSL_TLS13 */
 #ifdef HAVE_SESSION_TICKET
     printf("%s", msg[++msgId]);     /* -T */
@@ -1272,6 +1381,10 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
 #endif
     int useX25519 = 0;
     int useX448 = 0;
+#ifdef HAVE_LIBOQS
+    int useLibOqs = 0;
+    char* oqsAlg = NULL;
+#endif
     int exitWithRet = 0;
     int loadCertKeyIntoSSLObj = 0;
 
@@ -1344,11 +1457,11 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
     /* Reinitialize the global myVerifyAction. */
     myVerifyAction = VERIFY_OVERRIDE_ERROR;
 
-    /* Not Used: h, z, W, X, 7 */
+    /* Not Used: h, z, W, X */
     while ((ch = mygetopt_long(argc, argv, "?:"
                 "abc:defgijk:l:mnop:q:rstu;v:wxy"
                 "A:B:C:D:E:FGH:IJKL:MNO:PQR:S:T;UVYZ:"
-                "01:23:4:5689"
+                "01:23:4:567:89"
                 "@#", long_options, 0)) != -1) {
         switch (ch) {
             case '?' :
@@ -1660,6 +1773,14 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
                     #if defined(WOLFSSL_TLS13) && defined(HAVE_ECC)
                         onlyKeyShare = 2;
                     #endif
+                #endif
+                break;
+
+            case '7':
+                #ifdef HAVE_LIBOQS
+                    useLibOqs = 1;
+                    onlyKeyShare = 2;
+                    oqsAlg = myoptarg;
                 #endif
                 break;
 
@@ -2560,7 +2681,8 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
 
     #ifdef WOLFSSL_TLS13
         if (version >= 4) {
-            SetKeyShare(ssl, onlyKeyShare, useX25519, useX448);   
+            SetKeyShare(ssl, onlyKeyShare, useX25519, useX448, useLibOqs,
+                        oqsAlg);
         }
     #endif
 
