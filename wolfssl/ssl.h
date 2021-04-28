@@ -3251,6 +3251,27 @@ enum {
     WOLFSSL_FFDHE_4096    = 258,
     WOLFSSL_FFDHE_6144    = 259,
     WOLFSSL_FFDHE_8192    = 260,
+
+#ifdef HAVE_LIBOQS
+    /* These group numbers were taken from liboqs' openssl fork, see:
+    https://github.com/open-quantum-safe/openssl/blob/OQS-OpenSSL_1_1_1-stable/
+    oqs-template/oqs-kem-info.md */
+    WOLFSSL_OQS_MIN         = 527,
+    WOLFSSL_KYBER512        = 527,
+    WOLFSSL_KYBER768        = 528,
+    WOLFSSL_KYBER1024       = 529,
+    WOLFSSL_NTRU_HPS2048509 = 532,
+    WOLFSSL_NTRU_HPS2048677 = 533,
+    WOLFSSL_NTRU_HPS4096821 = 534,
+    WOLFSSL_NTRU_HRSS701    = 535,
+    WOLFSSL_LIGHTSABER      = 536,
+    WOLFSSL_SABER           = 537,
+    WOLFSSL_FIRESABER       = 538,
+    WOLFSSL_KYBER90S512     = 553,
+    WOLFSSL_KYBER90S768     = 554,
+    WOLFSSL_KYBER90S1024    = 555,
+    WOLFSSL_OQS_MAX         = 555,
+#endif
 };
 
 enum {

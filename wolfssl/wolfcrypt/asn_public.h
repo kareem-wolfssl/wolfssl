@@ -91,6 +91,7 @@ enum Ecc_Sum {
     ECC_BRAINPOOLP384R1_OID = 108,
     ECC_BRAINPOOLP512R1_OID = 110,
     ECC_SECP521R1_OID = 211,
+    /* to be fileld with liboqs OIDs? */
 };
 
 
