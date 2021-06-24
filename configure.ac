@@ -3531,43 +3531,39 @@ then
 fi
 
 
-# NTRU
-ENABLED_NTRU="no"
-tryntrudir=""
-AC_ARG_WITH([ntru],
-    [AS_HELP_STRING([--with-ntru=PATH],[Path to NTRU install (default /usr/)])],
+# liboqs
+ENABLED_LIBOQS="no"
+tryliboqsdir=""
+AC_ARG_WITH([liboqs],
+    [AS_HELP_STRING([--with-liboqs=PATH],[Path to liboqs install (default /usr/local)])],
     [
-        AC_MSG_CHECKING([for NTRU])
-        CPPFLAGS="$CPPFLAGS -DHAVE_NTRU -DHAVE_TLS_EXTENSIONS"
-        LIBS="$LIBS -lntruencrypt"
-
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <libntruencrypt/ntru_crypto_drbg.h>]], [[ ntru_crypto_drbg_instantiate(0, 0, 0, 0, 0); ]])], [ ntru_linked=yes ],[ ntru_linked=no ])
-
-        if test "x$ntru_linked" = "xno" ; then
+        AC_MSG_CHECKING([for liboqs])
+        CPPFLAGS="$CPPFLAGS -DHAVE_LIBOQS -DHAVE_TLS_EXTENSIONS"
+        LIBS="$LIBS -loqs"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <oqs/common.h>]],
+                        [[ OQS_init(); ]])], [ liboqs_linked=yes ],
+                        [ liboqs_linked=no ])
+        if test "x$liboqs_linked" = "xno" ; then
             if test "x$withval" != "xno" ; then
-                tryntrudir=$withval
+                tryliboqsdir=$withval
             fi
             if test "x$withval" = "xyes" ; then
-                tryntrudir="/usr"
+                tryliboqsdir="/usr/local"
             fi
-
-            LDFLAGS="$AM_LDFLAGS $LDFLAGS -L$tryntrudir/lib"
-            CPPFLAGS="$CPPFLAGS -I$tryntrudir/include"
-
-            AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <libntruencrypt/ntru_crypto_drbg.h>]], [[ ntru_crypto_drbg_instantiate(0, 0, 0, 0, 0); ]])], [ ntru_linked=yes ],[ ntru_linked=no ])
-
-            if test "x$ntru_linked" = "xno" ; then
-                AC_MSG_ERROR([NTRU isn't found.
-                If it's already installed, specify its path using --with-ntru=/dir/])
+            LDFLAGS="$AM_LDFLAGS $LDFLAGS -L$tryliboqsdir/lib"
+            CPPFLAGS="$CPPFLAGS -I$tryliboqsdir/include"
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <oqs/common.h>]], [[ OQS_init(); ]])], [ liboqs_linked=yes ],[ liboqs_linked=no ])
+            if test "x$liboqs_linked" = "xno" ; then
+                AC_MSG_ERROR([liboqs isn't found.
+                If it's already installed, specify its path using --with-liboqs=/dir/])
             fi
             AC_MSG_RESULT([yes])
-            AM_LDFLAGS="$AM_LDFLAGS -L$tryntrudir/lib"
+            AM_LDFLAGS="$AM_LDFLAGS -L$tryliboqsdir/lib"
         else
             AC_MSG_RESULT([yes])
         fi
-
-        AM_CFLAGS="$AM_CFLAGS -DHAVE_NTRU -DHAVE_TLS_EXTENSIONS -DWOLFSSL_STATIC_RSA"
-        ENABLED_NTRU="yes"
+        AM_CFLAGS="$AM_CFLAGS -DHAVE_LIBOQS -DHAVE_TLS_EXTENSIONS"
+        ENABLED_LIBOQS="yes"
     ]
 )
 
@@ -3581,9 +3577,9 @@ AC_ARG_ENABLE([qsh],
 
 if test "x$ENABLED_QSH" = "xyes"
 then
-    if test "x$ENABLED_NTRU" = "xno"
+    if test "x$ENABLED_LIBOQS" = "xno"
     then
-        AC_MSG_ERROR([cannot enable qsh without NTRU])
+        AC_MSG_ERROR([cannot enable qsh without liboqs])
     fi
 
     AM_CFLAGS="$AM_CFLAGS -DHAVE_QSH -DWOLFSSL_STATIC_DH -DWOLFSSL_STATIC_PSK"
@@ -6355,7 +6351,7 @@ AM_CONDITIONAL([BUILD_CRL],[test "x$ENABLED_CRL" = "xyes" || test "x$ENABLED_USE
 AM_CONDITIONAL([BUILD_CRL_MONITOR],[test "x$ENABLED_CRL_MONITOR" = "xyes"])
 AM_CONDITIONAL([BUILD_USER_RSA],[test "x$ENABLED_USER_RSA" = "xyes"] )
 AM_CONDITIONAL([BUILD_USER_CRYPTO],[test "x$ENABLED_USER_CRYPTO" = "xyes"])
-AM_CONDITIONAL([BUILD_NTRU],[test "x$ENABLED_NTRU" = "xyes"])
+AM_CONDITIONAL([BUILD_LIBOQS],[test "x$ENABLED_LIBOQS" = "xyes"])
 AM_CONDITIONAL([BUILD_WNR],[test "x$ENABLED_WNR" = "xyes"])
 AM_CONDITIONAL([BUILD_SRP],[test "x$ENABLED_SRP" = "xyes" || test "x$ENABLED_USERSETTINGS" = "xyes"])
 AM_CONDITIONAL([USE_VALGRIND],[test "x$ENABLED_VALGRIND" = "xyes"])
@@ -6702,7 +6698,7 @@ echo "   * Persistent session cache:   $ENABLED_SAVESESSION"
 echo "   * Persistent cert    cache:   $ENABLED_SAVECERT"
 echo "   * Atomic User Record Layer:   $ENABLED_ATOMICUSER"
 echo "   * Public Key Callbacks:       $ENABLED_PKCALLBACKS"
-echo "   * NTRU:                       $ENABLED_NTRU"
+echo "   * liboqs:                     $ENABLED_LIBOQS"
 echo "   * QSH:                        $ENABLED_QSH"
 echo "   * Whitewood netRandom:        $ENABLED_WNR"
 echo "   * Server Name Indication:     $ENABLED_SNI"

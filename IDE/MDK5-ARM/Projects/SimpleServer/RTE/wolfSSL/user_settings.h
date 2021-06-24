@@ -361,10 +361,10 @@
 #endif
 //  </e>
 
-//      <e>NTRU (need License, "crypto_ntru.h")
-#define MDK_CONF_NTRU 0
-#if MDK_CONF_NTRU == 1
-#define HAVE_NTRU
+//      <e>liboqs (for post-quantum crypto including NTRU)
+#define MDK_CONF_OQS 0
+#if MDK_CONF_OQS == 1
+#define HAVE_LIBOQS
 #endif
 //  </e>
 //  </h>

@@ -2617,10 +2617,11 @@ int wolfSSL_UseSupportedQSH(WOLFSSL* ssl, word16 name)
         return BAD_FUNC_ARG;
 
     switch (name) {
-    #ifdef HAVE_NTRU
-        case WOLFSSL_NTRU_EESS439:
-        case WOLFSSL_NTRU_EESS593:
-        case WOLFSSL_NTRU_EESS743:
+    #ifdef HAVE_LIBOQS
+        case WOLFSSL_NTRU_HPS2048_509:
+        case WOLFSSL_NTRU_HPS2048_677:
+        case WOLFSSL_NTRU_HPS4096_821:
+        case WOLFSSL_NTRU_HRSS_701:
             break;
     #endif
         default:
@@ -10865,7 +10866,7 @@ int wolfSSL_SESSION_get_master_key_length(const WOLFSSL_SESSION* ses)
 #endif /* OPENSSL_EXTRA */
 
 #ifndef NO_FILESYSTEM
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
 
 int wolfSSL_CTX_use_NTRUPrivateKey_file(WOLFSSL_CTX* ctx, const char* file)
 {
@@ -10883,7 +10884,7 @@ int wolfSSL_CTX_use_NTRUPrivateKey_file(WOLFSSL_CTX* ctx, const char* file)
     return WOLFSSL_FAILURE;
 }
 
-#endif /* HAVE_NTRU */
+#endif /* HAVE_LIBOQS */
 
 
 #endif /* NO_FILESYSTEM */
@@ -24488,7 +24489,7 @@ static WC_INLINE const char* wolfssl_kea_to_string(int kea)
             break;
     #endif
 #endif
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
         case ntru_kea:
             keaStr = "NTRU";
             break;
@@ -30769,9 +30770,9 @@ const WOLFSSL_ObjectInfo wolfssl_object_info[] = {
         { RSAk, RSAk, oidKeyType, "RSA", "rsaEncryption"},
         { NID_rsaEncryption, RSAk, oidKeyType, "RSA", "rsaEncryption"},
     #endif /* NO_RSA */
-    #ifdef HAVE_NTRU
+    #ifdef HAVE_LIBOQS
         { NTRUk, NTRUk, oidKeyType, "NTRU", "ntruEncryption"},
-    #endif /* HAVE_NTRU */
+    #endif /* HAVE_LIBOQS */
     #ifdef HAVE_ECC
         { ECDSAk, ECDSAk, oidKeyType, "ECDSA", "ecdsaEncryption"},
         { NID_X9_62_id_ecPublicKey, ECDSAk, oidKeyType, "id-ecPublicKey",
@@ -48851,10 +48852,10 @@ word32 nid2oid(int nid, int grp)
                 case RSAk:
                     return RSAk;
             #endif /* NO_RSA */
-            #ifdef HAVE_NTRU
+            #ifdef HAVE_LIBOQS
                 case NTRUk:
                     return NTRUk;
-            #endif /* HAVE_NTRU */
+            #endif /* HAVE_LIBOQS */
             #ifdef HAVE_ECC
                 case ECDSAk:
                     return ECDSAk;
@@ -49187,10 +49188,10 @@ int oid2nid(word32 oid, int grp)
                 case RSAk:
                     return RSAk;
             #endif /* NO_RSA */
-            #ifdef HAVE_NTRU
+            #ifdef HAVE_LIBOQS
                 case NTRUk:
                     return NTRUk;
-            #endif /* HAVE_NTRU */
+            #endif /* HAVE_LIBOQS */
             #ifdef HAVE_ECC
                 case ECDSAk:
                     return ECDSAk;

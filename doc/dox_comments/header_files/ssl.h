@@ -11311,8 +11311,9 @@ WOLFSSL_API int wolfSSL_isQSH(WOLFSSL* ssl);
     \return MEMORY_E Error allocating memory for operation.
 
     \param ssl Pointer to ssl session to use.
-    \param name Name of a supported QSH.  Valid names are WOLFSSL_NTRU_EESS439,
-    WOLFSSL_NTRU_EESS593, or WOLFSSL_NTRU_EESS743.
+    \param name Name of a supported QSH.  Valid names are
+    WOLFSSL_NTRU_HPS2048_509, WOLFSSL_NTRU_HPS2048_677,
+    WOLFSSL_NTRU_HPS4096_821 or WOLFSSL_NTRU_HRSS_701.
 
     _Example_
     \code
@@ -11323,7 +11324,7 @@ WOLFSSL_API int wolfSSL_isQSH(WOLFSSL* ssl);
     ctx = wolfSSL_CTX_new(method);
     ssl = wolfSSL_new(ctx);
 
-    word16 qsh_name = WOLFSSL_NTRU_EESS439;
+    word16 qsh_name = WOLFSSL_NTRU_HPS2048_509;
 
     if(wolfSSL_UseSupportedQSH(ssl,qsh_name) != SSL_SUCCESS)
     {

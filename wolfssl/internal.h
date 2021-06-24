@@ -309,7 +309,7 @@
                 #define BUILD_SSL_RSA_WITH_RC4_128_MD5
             #endif
         #endif
-        #if !defined(NO_TLS) && defined(HAVE_NTRU) && !defined(NO_SHA) \
+        #if !defined(NO_TLS) && defined(HAVE_LIBOQS) && !defined(NO_SHA) \
             && defined(WOLFSSL_STATIC_RSA)
             #define BUILD_TLS_NTRU_RSA_WITH_RC4_128_SHA
         #endif
@@ -320,7 +320,7 @@
             #if defined(WOLFSSL_STATIC_RSA)
                 #define BUILD_SSL_RSA_WITH_3DES_EDE_CBC_SHA
             #endif
-            #if !defined(NO_TLS) && defined(HAVE_NTRU) \
+            #if !defined(NO_TLS) && defined(HAVE_LIBOQS) \
                 && defined(WOLFSSL_STATIC_RSA)
                     #define BUILD_TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA
             #endif
@@ -344,7 +344,7 @@
                     #define BUILD_TLS_RSA_WITH_AES_256_CBC_SHA
                 #endif
             #endif
-            #if defined(HAVE_NTRU) && defined(WOLFSSL_STATIC_RSA)
+            #if defined(HAVE_LIBOQS) && defined(WOLFSSL_STATIC_RSA)
                 #ifdef WOLFSSL_AES_128
                     #define BUILD_TLS_NTRU_RSA_WITH_AES_128_CBC_SHA
                 #endif
@@ -1492,8 +1492,9 @@ enum Misc {
     MAX_X509_SIZE      = 2048, /* max static x509 buffer size */
     CERT_MIN_SIZE      =  256, /* min PEM cert size with header/footer */
 
-    MAX_NTRU_PUB_KEY_SZ = 1027, /* NTRU max for now */
-    MAX_NTRU_ENCRYPT_SZ = 1027, /* NTRU max for now */
+    MAX_NTRU_PUB_KEY_SZ = 1230, /* NTRU max for now */
+/* TBD! */
+    MAX_NTRU_ENCRYPT_SZ = 1590, /* NTRU max for now */
     MAX_NTRU_BITS       =  256, /* max symmetric bit strength */
     NO_SNIFF           =   0,  /* not sniffing */
     SNIFF              =   1,  /* currently sniffing */
@@ -1627,7 +1628,7 @@ enum Misc {
 
 
 /* don't use extra 3/4k stack space unless need to */
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     #define MAX_ENCRYPT_SZ MAX_NTRU_ENCRYPT_SZ
 #else
     #define MAX_ENCRYPT_SZ ENCRYPT_LEN
@@ -2814,7 +2815,7 @@ struct WOLFSSL_CTX {
     byte        haveRSA:1;        /* RSA available */
     byte        haveECC:1;        /* ECC available */
     byte        haveDH:1;         /* server DH parms set by user */
-    byte        haveNTRU:1;       /* server private NTRU  key loaded */
+    byte        haveNTRU:1;       /* server private NTRU key loaded */
     byte        haveECDSAsig:1;   /* server cert signed w/ ECDSA */
     byte        haveStaticECC:1;  /* static server ECC private key */
     byte        partialWrite:1;   /* only one msg per write call */
@@ -3578,7 +3579,7 @@ typedef struct Options {
     word16            haveRSA:1;          /* RSA available */
     word16            haveECC:1;          /* ECC available */
     word16            haveDH:1;           /* server DH parms set by user */
-    word16            haveNTRU:1;         /* server NTRU  private key loaded */
+    word16            haveNTRU:1;         /* server NTRU private key loaded */
     word16            haveQSH:1;          /* have QSH ability */
     word16            haveECDSAsig:1;     /* server ECDSA signed cert */
     word16            haveStaticECC:1;    /* static server ECC private key */
@@ -4216,7 +4217,7 @@ struct WOLFSSL {
     byte            certHashSigAlgo[WOLFSSL_MAX_SIGALGO]; /* cert sig/algo to
                                                            * offer */
 #endif
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     word16          peerNtruKeyLen;
     byte            peerNtruKey[MAX_NTRU_PUB_KEY_SZ];
     byte            peerNtruKeyPresent;

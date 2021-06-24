@@ -46,16 +46,15 @@
 #ifdef HAVE_CURVE448
     #include <wolfssl/wolfcrypt/curve448.h>
 #endif
-#ifdef HAVE_NTRU
-    #include "libntruencrypt/ntru_crypto.h"
-    #include <wolfssl/wolfcrypt/random.h>
+#ifdef HAVE_LIBOQS
+    #include "oqs/oqs.h"
 #endif
 
 #ifdef HAVE_QSH
     static int TLSX_AddQSHKey(QSHKey** list, QSHKey* key);
     static byte* TLSX_QSHKeyFind_Pub(QSHKey* qsh, word16* pubLen, word16 name);
-#if defined(HAVE_NTRU)
-    static int TLSX_CreateNtruKey(WOLFSSL* ssl, int type);
+#if defined(HAVE_LIBOQS)
+    static int TLSX_CreateOqsKey(WOLFSSL* ssl, int type);
 #endif
 #endif /* HAVE_QSH */
 
@@ -5211,10 +5210,6 @@ int TLSX_UseSessionTicket(TLSX** extensions, SessionTicket* ticket, void* heap)
 /******************************************************************************/
 
 #ifdef HAVE_QSH
-#if defined(HAVE_NTRU)
-static WC_RNG* gRng;
-static wolfSSL_Mutex* gRngMutex;
-#endif
 
 static void TLSX_QSH_FreeAll(QSHScheme* list, void* heap)
 {
@@ -5712,10 +5707,11 @@ int TLSX_ValidateQSHScheme(TLSX** extensions, word16 theirs) {
 static int TLSX_HaveQSHScheme(word16 name)
 {
     switch(name) {
-        #ifdef HAVE_NTRU
-            case WOLFSSL_NTRU_EESS439:
-            case WOLFSSL_NTRU_EESS593:
-            case WOLFSSL_NTRU_EESS743:
+        #ifdef HAVE_LIBOQS
+            case WOLFSSL_NTRU_HPS2048_509:
+            case WOLFSSL_NTRU_HPS2048_677:
+            case WOLFSSL_NTRU_HPS4096_821:
+            case WOLFSSL_NTRU_HRSS_701:
                     return 1;
         #endif
             case WOLFSSL_LWE_XXX:
@@ -9810,38 +9806,6 @@ static int TLSX_Write(TLSX* list, byte* output, byte* semaphore,
 }
 
 
-#if defined(HAVE_NTRU) && defined(HAVE_QSH)
-
-static word32 GetEntropy(unsigned char* out, word32 num_bytes)
-{
-    int ret = 0;
-
-    if (gRng == NULL) {
-        if ((gRng = (WC_RNG*)XMALLOC(sizeof(WC_RNG), NULL,
-                                                    DYNAMIC_TYPE_TLSX)) == NULL)
-            return DRBG_OUT_OF_MEMORY;
-        wc_InitRng(gRng);
-    }
-
-    if (gRngMutex == NULL) {
-        if ((gRngMutex = (wolfSSL_Mutex*)XMALLOC(sizeof(wolfSSL_Mutex), NULL,
-                                                    DYNAMIC_TYPE_TLSX)) == NULL)
-            return DRBG_OUT_OF_MEMORY;
-        wc_InitMutex(gRngMutex);
-    }
-
-    ret |= wc_LockMutex(gRngMutex);
-    ret |= wc_RNG_GenerateBlock(gRng, out, num_bytes);
-    ret |= wc_UnLockMutex(gRngMutex);
-
-    if (ret != 0)
-        return DRBG_ENTROPY_FAIL;
-
-    return DRBG_OK;
-}
-#endif
-
-
 #ifdef HAVE_QSH
 static int TLSX_CreateQSHKey(WOLFSSL* ssl, int type)
 {
@@ -9850,15 +9814,16 @@ static int TLSX_CreateQSHKey(WOLFSSL* ssl, int type)
     (void)ssl;
 
     switch (type) {
-#ifdef HAVE_NTRU
-        case WOLFSSL_NTRU_EESS439:
-        case WOLFSSL_NTRU_EESS593:
-        case WOLFSSL_NTRU_EESS743:
-            ret = TLSX_CreateNtruKey(ssl, type);
+#ifdef HAVE_LIBOQS
+        case WOLFSSL_NTRU_HPS2048_509:
+        case WOLFSSL_NTRU_HPS2048_677:
+        case WOLFSSL_NTRU_HPS4096_821:
+        case WOLFSSL_NTRU_HRSS_701:
+            ret = TLSX_CreateOqsKey(ssl, type);
             break;
 #endif
         default:
-            WOLFSSL_MSG("Unknown type for creating NTRU key");
+            WOLFSSL_MSG("Unknown type for creating OQS key");
             break;
     }
 
@@ -9897,76 +9862,98 @@ static int TLSX_AddQSHKey(QSHKey** list, QSHKey* key)
 }
 
 
-#if defined(HAVE_NTRU)
-int TLSX_CreateNtruKey(WOLFSSL* ssl, int type)
+#if defined(HAVE_LIBOQS)
+int TLSX_CreateOqsKey(WOLFSSL* ssl, int type)
 {
     int ret = -1;
-    int ntruType;
+    char* oqsName = NULL;
 
-    /* variable declarations for NTRU*/
+    /* variable declarations for liboqs */
     QSHKey* temp = NULL;
-    byte   public_key[1027];
-    word16 public_key_len = sizeof(public_key);
-    byte   private_key[1120];
-    word16 private_key_len = sizeof(private_key);
-    DRBG_HANDLE drbg;
+    OQS_KEM* kem = NULL;
+    byte*  public_key;
+    word16 public_key_len = 0;
+    byte*  private_key;
+    word16 private_key_len = 0;
 
     if (ssl == NULL)
         return BAD_FUNC_ARG;
 
     switch (type) {
-        case WOLFSSL_NTRU_EESS439:
-            ntruType = NTRU_EES439EP1;
+        case WOLFSSL_NTRU_HPS2048_509:
+            oqsName = OQS_KEM_alg_ntru_hps2048509;
             break;
-        case WOLFSSL_NTRU_EESS593:
-            ntruType = NTRU_EES593EP1;
+        case WOLFSSL_NTRU_HPS2048_677:
+            oqsName = OQS_KEM_alg_ntru_hps2048677;
             break;
-        case WOLFSSL_NTRU_EESS743:
-            ntruType = NTRU_EES743EP1;
+        case WOLFSSL_NTRU_HPS4096_821:
+            oqsName = OQS_KEM_alg_ntru_hps4096821;
+            break;
+        case WOLFSSL_NTRU_HRSS_701:
+            oqsName = OQS_KEM_alg_ntru_hrss701;
             break;
         default:
-            WOLFSSL_MSG("Unknown type for creating NTRU key");
+            WOLFSSL_MSG("Unknown type for creating OQS key\n");
             return -1;
     }
-    ret = ntru_crypto_drbg_external_instantiate(GetEntropy, &drbg);
-    if (ret != DRBG_OK) {
-        WOLFSSL_MSG("NTRU drbg instantiate failed\n");
+
+    ret = OQS_KEM_alg_is_enabled(oqsName);
+    if (ret != 1) {
+        WOLFSSL_MSG("OQS algorithm not enabled in liboqs\n")
         return ret;
     }
-
-    if ((ret = ntru_crypto_ntru_encrypt_keygen(drbg, ntruType,
-                     &public_key_len, NULL, &private_key_len, NULL)) != NTRU_OK)
+    kem = OQS_KEM_new(oqsName);
+    if (kem == NULL) {
+        WOLFSSL_MSG("Error initializing liboqs\n");
         return ret;
+    }
+    public_key_len = kem->length_public_key;
+    private_key_len = kem->length_secret_key;
 
-    if ((ret = ntru_crypto_ntru_encrypt_keygen(drbg, ntruType,
-        &public_key_len, public_key, &private_key_len, private_key)) != NTRU_OK)
-        return ret;
+    if ((public_key = (byte*)XMALLOC(public_key_len, ssl->heap,
+                                DYNAMIC_TYPE_TLSX)) == NULL)
+        ret = MEMORY_E;
+        goto err;
+    if ((private_key = (byte*)XMALLOC(private_key_len, ssl->heap,
+                                DYNAMIC_TYPE_TLSX)) == NULL)
+        ret = MEMORY_E;
+        goto err;
 
-    ret = ntru_crypto_drbg_uninstantiate(drbg);
-    if (ret != NTRU_OK) {
-        WOLFSSL_MSG("NTRU drbg uninstantiate failed\n");
-        return ret;
+    if ((ret = OQS_KEM_keypair(kem, public_key, private_key)) != OQS_SUCCESS) {
+        WOLFSSL_MSG("Error generating liboqs keypair\n");
+        goto err;
     }
 
     if ((temp = (QSHKey*)XMALLOC(sizeof(QSHKey), ssl->heap,
-                                                    DYNAMIC_TYPE_TLSX)) == NULL)
-        return MEMORY_E;
+        DYNAMIC_TYPE_TLSX)) == NULL) {
+        ret = MEMORY_E;
+        goto err;
+    }
     temp->name = type;
     temp->pub.length = public_key_len;
-    temp->pub.buffer = (byte*)XMALLOC(public_key_len, ssl->heap,
-                                DYNAMIC_TYPE_PUBLIC_KEY);
-    XMEMCPY(temp->pub.buffer, public_key, public_key_len);
+    temp->pub.buffer = public_key;
     temp->pri.length = private_key_len;
-    temp->pri.buffer = (byte*)XMALLOC(private_key_len, ssl->heap,
-                                DYNAMIC_TYPE_ARRAYS);
-    XMEMCPY(temp->pri.buffer, private_key, private_key_len);
+    temp->pri.buffer = private_key;
     temp->next = NULL;
 
     TLSX_AddQSHKey(&ssl->QSH_Key, temp);
 
+    XFREE(kem, NULL, NULL);
+
     (void)ssl;
     (void)type;
 
+    return ret;
+
+err:
+    if (kem != NULL)
+        XFREE(kem, NULL, NULL);
+    if (public_key != NULL)
+        XFREE(public_key, ssl->heap, DYNAMIC_TYPE_TLSX);
+    if (private_key != NULL)
+        XFREE(private_key, ssl->heap, DYNAMIC_TYPE_TLSX);
+    if (temp != NULL)
+        XFREE(temp, ssl->heap, DYNAMIC_TYPE_TLSX);
     return ret;
 }
 #endif
@@ -10264,44 +10251,62 @@ int TLSX_PopulateExtensions(WOLFSSL* ssl, byte isServer)
         /* test if user has set a specific scheme already */
         if (!ssl->user_set_QSHSchemes) {
             if (ssl->sendQSHKeys && ssl->QSH_Key == NULL) {
-                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_EESS743)) != 0) {
+                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_HPS2048_509))
+                    != 0) {
                     WOLFSSL_MSG("Error creating ntru keys");
                     return ret;
                 }
-                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_EESS593)) != 0) {
+                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_HPS2048_677))
+                    != 0) {
                     WOLFSSL_MSG("Error creating ntru keys");
                     return ret;
                 }
-                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_EESS439)) != 0) {
+                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_HPS4096_821))
+                    != 0) {
+                    WOLFSSL_MSG("Error creating ntru keys");
+                    return ret;
+                }
+                if ((ret = TLSX_CreateQSHKey(ssl, WOLFSSL_NTRU_HRSS_701))
+                    != 0) {
                     WOLFSSL_MSG("Error creating ntru keys");
                     return ret;
                 }
 
-            /* add NTRU 256 */
-            public_key = TLSX_QSHKeyFind_Pub(ssl->QSH_Key,
-                    &public_key_len, WOLFSSL_NTRU_EESS743);
+            /* add NTRU HRSS 701 */
+                public_key = TLSX_QSHKeyFind_Pub(ssl->QSH_Key,
+                        &public_key_len, WOLFSSL_NTRU_HRSS_701);
             }
-            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_EESS743,
+            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_HRSS_701,
                                   public_key, public_key_len, ssl->heap)
                                   != WOLFSSL_SUCCESS)
                 ret = -1;
 
-            /* add NTRU 196 */
+            /* add NTRU HPS 4096 821 */
             if (ssl->sendQSHKeys) {
                 public_key = TLSX_QSHKeyFind_Pub(ssl->QSH_Key,
-                    &public_key_len, WOLFSSL_NTRU_EESS593);
+                        &public_key_len, WOLFSSL_NTRU_HPS4096_821);
             }
-            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_EESS593,
+            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_HPS4096_821,
                                   public_key, public_key_len, ssl->heap)
                                   != WOLFSSL_SUCCESS)
                 ret = -1;
 
-            /* add NTRU 128 */
+            /* add NTRU HPS 2048 677 */
             if (ssl->sendQSHKeys) {
                 public_key = TLSX_QSHKeyFind_Pub(ssl->QSH_Key,
-                    &public_key_len, WOLFSSL_NTRU_EESS439);
+                    &public_key_len, WOLFSSL_NTRU_HPS2048_677);
             }
-            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_EESS439,
+            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_HPS2048_677,
+                                  public_key, public_key_len, ssl->heap)
+                                  != WOLFSSL_SUCCESS)
+                ret = -1;
+
+            /* add NTRU HPS 2048 509 */
+            if (ssl->sendQSHKeys) {
+                public_key = TLSX_QSHKeyFind_Pub(ssl->QSH_Key,
+                    &public_key_len, WOLFSSL_NTRU_HPS2048_509);
+            }
+            if (TLSX_UseQSHScheme(&ssl->extensions, WOLFSSL_NTRU_HPS2048_509,
                                   public_key, public_key_len, ssl->heap)
                                   != WOLFSSL_SUCCESS)
                 ret = -1;

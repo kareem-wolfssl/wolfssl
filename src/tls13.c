@@ -104,8 +104,8 @@
     #include <wolfcrypt/src/misc.c>
 #endif
 
-#ifdef HAVE_NTRU
-    #include "libntruencrypt/ntru_crypto.h"
+#ifdef HAVE_LIBOQS
+    #include "oqs/oqs.h"
 #endif
 
 #ifdef __sun

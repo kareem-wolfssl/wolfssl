@@ -923,9 +923,9 @@ WOLFSSL_API int wolfSSL_use_RSAPrivateKey_file(WOLFSSL*, const char*, int);
                                                     const char*, int);
 #endif
 
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     WOLFSSL_API int wolfSSL_CTX_use_NTRUPrivateKey_file(WOLFSSL_CTX*, const char*);
-    /* load NTRU private key blob */
+    /* load OQS private key blob */
 #endif
 
 #endif /* !NO_FILESYSTEM && !NO_CERTS */
@@ -3513,6 +3513,10 @@ enum {
     WOLFSSL_NTRU_EESS439 = 0x0101, /* max plaintext length of 65  */
     WOLFSSL_NTRU_EESS593 = 0x0102, /* max plaintext length of 86  */
     WOLFSSL_NTRU_EESS743 = 0x0103, /* max plaintext length of 106 */
+    WOLFSSL_NTRU_HPS2048_509 = 0x0104,
+    WOLFSSL_NTRU_HPS2048_677 = 0x0105,
+    WOLFSSL_NTRU_HPS4096_821 = 0x0106,
+    WOLFSSL_NTRU_HRSS_701 = 0x0107,
     WOLFSSL_LWE_XXX  = 0x0201,     /* Learning With Error encryption scheme */
     WOLFSSL_HFE_XXX  = 0x0301,     /* Hidden Field Equation scheme */
     WOLFSSL_NULL_QSH = 0xFFFF      /* QSHScheme is not used */

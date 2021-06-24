@@ -88,8 +88,8 @@
     #include "zlib.h"
 #endif
 
-#ifdef HAVE_NTRU
-    #include "libntruencrypt/ntru_crypto.h"
+#ifdef HAVE_LIBOQS
+    #include "oqs/oqs.h"
 #endif
 #ifdef WOLFSSL_QNX_CAAM
     /* included to get CAAM devId value */
@@ -358,39 +358,6 @@ static int QSH_FreeAll(WOLFSSL* ssl)
 }
 #endif
 
-
-#ifdef HAVE_NTRU
-static WOLFSSL_GLOBAL WC_RNG* rng;
-static WOLFSSL_GLOBAL wolfSSL_Mutex* rngMutex;
-
-static word32 GetEntropy(unsigned char* out, word32 num_bytes)
-{
-    int ret = 0;
-
-    if (rng == NULL) {
-        if ((rng = (WC_RNG*)XMALLOC(sizeof(WC_RNG), 0,
-                                                    DYNAMIC_TYPE_RNG)) == NULL)
-            return DRBG_OUT_OF_MEMORY;
-        wc_InitRng(rng);
-    }
-
-    if (rngMutex == NULL) {
-        if ((rngMutex = (wolfSSL_Mutex*)XMALLOC(sizeof(wolfSSL_Mutex), 0,
-                        DYNAMIC_TYPE_MUTEX)) == NULL)
-            return DRBG_OUT_OF_MEMORY;
-        wc_InitMutex(rngMutex);
-    }
-
-    ret |= wc_LockMutex(rngMutex);
-    ret |= wc_RNG_GenerateBlock(rng, out, num_bytes);
-    ret |= wc_UnLockMutex(rngMutex);
-
-    if (ret != 0)
-        return DRBG_ENTROPY_FAIL;
-
-    return DRBG_OK;
-}
-#endif /* HAVE_NTRU */
 
 #ifdef HAVE_LIBZ
 
@@ -1635,7 +1602,7 @@ int InitSSL_Side(WOLFSSL* ssl, word16 side)
     ssl->options.side = side;
 
     /* reset options that are side specific */
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     if (ssl->options.side == WOLFSSL_CLIENT_END) {
         ssl->options.haveNTRU = 1;      /* always on client side */
                                         /* server can turn on by loading key */
@@ -1770,7 +1737,7 @@ int InitSSL_Ctx(WOLFSSL_CTX* ctx, WOLFSSL_METHOD* method, void* heap)
     ctx->CBIOSend = GNRC_SendTo;
 #endif
 
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     if (method->side == WOLFSSL_CLIENT_END)
         ctx->haveNTRU = 1;           /* always on client side */
                                      /* server can turn on by loading key */
@@ -9521,12 +9488,12 @@ static int BuildFinished(WOLFSSL* ssl, Hashes* hashes, const byte* sender)
                 return 1;
             break;
 
-    #ifdef HAVE_NTRU
+    #ifdef HAVE_LIBOQS
         case TLS_NTRU_RSA_WITH_RC4_128_SHA :
             if (requirement == REQUIRES_NTRU)
                 return 1;
             break;
-    #endif /* HAVE_NTRU */
+    #endif /* HAVE_LIBOQS */
 
         case TLS_RSA_WITH_AES_128_CBC_SHA :
             if (requirement == REQUIRES_RSA)
@@ -9538,24 +9505,24 @@ static int BuildFinished(WOLFSSL* ssl, Hashes* hashes, const byte* sender)
                 return 1;
             break;
 
-    #ifdef HAVE_NTRU
+    #ifdef HAVE_LIBOQS
         case TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA :
             if (requirement == REQUIRES_NTRU)
                 return 1;
             break;
-    #endif /* HAVE_NTRU */
+    #endif /* HAVE_LIBOQS */
 
         case TLS_RSA_WITH_AES_256_CBC_SHA :
             if (requirement == REQUIRES_RSA)
                 return 1;
             break;
 
-    #ifdef HAVE_NTRU
+    #ifdef HAVE_LIBOQS
         case TLS_NTRU_RSA_WITH_AES_128_CBC_SHA :
             if (requirement == REQUIRES_NTRU)
                 return 1;
             break;
-    #endif /* HAVE_NTRU */
+    #endif /* HAVE_LIBOQS */
 
         case TLS_RSA_WITH_AES_256_CBC_SHA256 :
             if (requirement == REQUIRES_RSA)
@@ -9569,12 +9536,12 @@ static int BuildFinished(WOLFSSL* ssl, Hashes* hashes, const byte* sender)
                 return 1;
             break;
 
-    #ifdef HAVE_NTRU
+    #ifdef HAVE_LIBOQS
         case TLS_NTRU_RSA_WITH_AES_256_CBC_SHA :
             if (requirement == REQUIRES_NTRU)
                 return 1;
             break;
-    #endif /* HAVE_NTRU */
+    #endif /* HAVE_LIBOQS */
 
     #ifdef HAVE_IDEA
         case SSL_RSA_WITH_IDEA_CBC_SHA :
@@ -12224,7 +12191,7 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
                         break;
                     }
                 #endif /* NO_RSA */
-                #ifdef HAVE_NTRU
+                #ifdef HAVE_LIBOQS
                     case NTRUk:
                     {
                         if (args->dCert->pubKeySize > sizeof(ssl->peerNtruKey)) {
@@ -12239,7 +12206,7 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
                         }
                         break;
                     }
-                #endif /* HAVE_NTRU */
+                #endif /* HAVE_LIBOQS */
                 #ifdef HAVE_ECC
                     case ECDSAk:
                     {
@@ -19252,17 +19219,17 @@ const char* wolfSSL_ERR_reason_error_string(unsigned long e)
     case PSK_KEY_ERROR:
         return "psk key callback error";
 
-    case NTRU_KEY_ERROR:
-        return "NTRU key error";
+    case OQS_KEY_ERROR:
+        return "OQS key error";
 
-    case NTRU_DRBG_ERROR:
-        return "NTRU drbg error";
+    case OQS_INIT_ERROR:
+        return "OQS init error";
 
-    case NTRU_ENCRYPT_ERROR:
-        return "NTRU encrypt error";
+    case OQS_ENCRYPT_ERROR:
+        return "OQS encrypt error";
 
-    case NTRU_DECRYPT_ERROR:
-        return "NTRU decrypt error";
+    case OQS_DECRYPT_ERROR:
+        return "OQS decrypt error";
 
     case GETTIME_ERROR:
         return "gettimeofday() error";
@@ -20148,7 +20115,7 @@ const char* GetCipherKeaStr(char n[][MAX_SEGMENT_SZ]) {
     n3 = n[3];
     n4 = n[4];
 
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     if (XSTRNCMP(n0,"NTRU",4) == 0)
         return "NTRU";
 #endif
@@ -20188,7 +20155,7 @@ const char* GetCipherAuthStr(char n[][MAX_SEGMENT_SZ]) {
     n1 = n[1];
     n2 = n[2];
 
-#ifdef HAVE_NTRU
+#ifdef HAVE_LIBOQS
     if (XSTRNCMP(n0,"NTRU",4) == 0)
         return "NTRU";
 #endif
@@ -23748,65 +23715,110 @@ exit_dske:
 
 #ifdef HAVE_QSH
 
-#ifdef HAVE_NTRU
-/* Encrypt a byte array using ntru
+#ifdef HAVE_LIBOQS
+/* Generate and encapsulate a byte array using liboqs
    key    a struct containing the public key to use
-   bufIn  array to be encrypted
-   inSz   size of bufIn array
-   bufOut cipher text out
-   outSz  will be set to the new size of cipher text
+   secret shared secret out
+   secSz  will be set to the new size of shared secret
+   ciph   cipher text out
+   ciphSz will be set to the new size of cipher text
  */
-static int NtruSecretEncrypt(QSHKey* key, byte* bufIn, word32 inSz,
-        byte* bufOut, word16* outSz)
+static int OqsSecretEncapsulate(QSHKey* key, byte* secret, word16* secSz,
+                                byte* ciph, word16* ciphSz)
 {
     int    ret;
-    DRBG_HANDLE drbg;
+    char* oqsName = NULL;
+    OQS_KEM* kem = NULL;
 
     /* sanity checks on input arguments */
-    if (key == NULL || bufIn == NULL || bufOut == NULL || outSz == NULL)
+    if (key == NULL || secret == NULL || secSz == NULL ||
+        ciph == NULL || ciphSz == NULL)
         return BAD_FUNC_ARG;
 
     if (key->pub.buffer == NULL)
         return BAD_FUNC_ARG;
 
     switch (key->name) {
-        case WOLFSSL_NTRU_EESS439:
-        case WOLFSSL_NTRU_EESS593:
-        case WOLFSSL_NTRU_EESS743:
+        case WOLFSSL_NTRU_HPS2048_509:
+            oqsName = OQS_KEM_alg_ntru_hps2048509;
+            break;
+        case WOLFSSL_NTRU_HPS2048_677:
+            oqsName = OQS_KEM_alg_ntru_hps2048677;
+            break;
+        case WOLFSSL_NTRU_HPS4096_821:
+            oqsName = OQS_KEM_alg_ntru_hps4096821;
+            break;
+        case WOLFSSL_NTRU_HRSS_701:
+            oqsName = OQS_KEM_alg_ntru_hrss701;
             break;
         default:
             WOLFSSL_MSG("Unknown QSH encryption key!");
             return -1;
     }
 
-    /* set up ntru drbg */
-    ret = ntru_crypto_drbg_external_instantiate(GetEntropy, &drbg);
-    if (ret != DRBG_OK)
-        return NTRU_DRBG_ERROR;
+    /* set up oqs kem */
+    ret = OQS_KEM_alg_is_enabled(oqsName);
+    if (ret != 1) {
+        WOLFSSL_MSG("OQS algorithm not enabled in liboqs\n")
+        return OQS_INIT_ERROR;
+    }
+    kem = OQS_KEM_new(oqsName);
+    if (kem == NULL) {
+        WOLFSSL_MSG("Error initializing liboqs\n");
+        return OQS_INIT_ERROR;
+    }
 
-    /* encrypt the byte array */
-    ret = ntru_crypto_ntru_encrypt(drbg, key->pub.length, key->pub.buffer,
-        inSz, bufIn, outSz, bufOut);
-    ntru_crypto_drbg_uninstantiate(drbg);
-    if (ret != NTRU_OK)
-        return NTRU_ENCRYPT_ERROR;
+    secret = (byte*)XMALLOC(kem->length_shared_secret, ssl->heap,
+                            DYNAMIC_TYPE_SECRET);
+    if (secret == NULL) {
+        ret = MEMORY_E;
+        goto err;
+    }
+    ciph = (byte*)XMALLOC(kem->length_ciphertext, ssl->heap,
+                          DYNAMIC_TYPE_SECRET);
+    if (ciph == NULL) {
+        ret = MEMORY_E;
+        goto err;
+    }
+
+    /* encapsulate a randomly generated shared secret */
+    ret = OQS_KEM_encaps(kem, ciph, secret, key->pub.buffer);
+    if (ret != OQS_SUCCESS) {
+        ret = OQS_ENCRYPT_ERROR;
+        goto err;
+    }
+    *secSz = kem->length_shared_secret;
+    *ciphSz = kem->length_ciphertext;
+
+    XFREE(kem, NULL, NULL);
+
+    return ret;
+
+err:
+    if (secret != NULL)
+        XFREE(secret, ssl->heap, DYNAMIC_TYPE_SECRET);
+    if (ciph != NULL)
+        XFREE(ciph, ssl->heap, DYNAMIC_TYPE_SECRET);
+    if (kem != NULL)
+        XFREE(kem, NULL, NULL);
 
     return ret;
 }
 
-/* Decrypt a byte array using ntru
+/* Decapsulate a byte array using liboqs
    key    a struct containing the private key to use
-   bufIn  array to be decrypted
-   inSz   size of bufIn array
-   bufOut plain text out
-   outSz  will be set to the new size of plain text
+   ciph   cipher text to be decrypted
+   ciphSz size of ciph array
+   secret shared secret out
+   secSz  will be set to the new size of the shared secret
  */
 
-static int NtruSecretDecrypt(QSHKey* key, byte* bufIn, word32 inSz,
-        byte* bufOut, word16* outSz)
+static int OqsSecretDecapsulate(QSHKey* key, byte* ciph, word32 ciphSz,
+                                byte* secret, word16* secSz)
 {
     int    ret;
-    DRBG_HANDLE drbg;
+    char* oqsName = NULL;
+    OQS_KEM* kem = NULL;
 
     /* sanity checks on input arguments */
     if (key == NULL || bufIn == NULL || bufOut == NULL || outSz == NULL)
@@ -23816,9 +23828,17 @@ static int NtruSecretDecrypt(QSHKey* key, byte* bufIn, word32 inSz,
         return BAD_FUNC_ARG;
 
     switch (key->name) {
-        case WOLFSSL_NTRU_EESS439:
-        case WOLFSSL_NTRU_EESS593:
-        case WOLFSSL_NTRU_EESS743:
+        case WOLFSSL_NTRU_HPS2048_509:
+            oqsName = OQS_KEM_alg_ntru_hps2048509;
+            break;
+        case WOLFSSL_NTRU_HPS2048_677:
+            oqsName = OQS_KEM_alg_ntru_hps2048677;
+            break;
+        case WOLFSSL_NTRU_HPS4096_821:
+            oqsName = OQS_KEM_alg_ntru_hps4096821;
+            break;
+        case WOLFSSL_NTRU_HRSS_701:
+            oqsName = OQS_KEM_alg_ntru_hrss701;
             break;
         default:
             WOLFSSL_MSG("Unknown QSH decryption key!");
@@ -23826,21 +23846,48 @@ static int NtruSecretDecrypt(QSHKey* key, byte* bufIn, word32 inSz,
     }
 
 
-    /* set up drbg */
-    ret = ntru_crypto_drbg_external_instantiate(GetEntropy, &drbg);
-    if (ret != DRBG_OK)
-        return NTRU_DRBG_ERROR;
+    /* set up oqs kem */
+    ret = OQS_KEM_alg_is_enabled(oqsName);
+    if (ret != 1) {
+        WOLFSSL_MSG("OQS algorithm not enabled in liboqs\n")
+        return OQS_INIT_ERROR;
+    }
+    kem = OQS_KEM_new(oqsName);
+    if (kem == NULL) {
+        WOLFSSL_MSG("Error initializing liboqs\n");
+        return OQS_INIT_ERROR;
+    }
 
-    /* decrypt cipher text */
-    ret = ntru_crypto_ntru_decrypt(key->pri.length, key->pri.buffer,
-        inSz, bufIn, outSz, bufOut);
-    ntru_crypto_drbg_uninstantiate(drbg);
-    if (ret != NTRU_OK)
-        return NTRU_ENCRYPT_ERROR;
+    secret = (byte*)XMALLOC(kem->length_shared_secret, ssl->heap,
+                            DYNAMIC_TYPE_SECRET);
+    if (secret == NULL) {
+        ret = MEMORY_E;
+        goto err;
+    }
+
+    /* decapsulate cipher text */
+    ret = OQS_KEM_decaps(kem, secret, ciph, key);
+    if (ret != OQS_SUCCESS) {
+        ret = OQS_ENCRYPT_ERROR;
+        goto err;
+    }
+    *secSz = kem->length_shared_secret;
+
+    XFREE(kem, NULL, NULL);
+
+    return ret;
+
+err:
+    if (secret != NULL)
+        XFREE(secret, ssl->heap, DYNAMIC_TYPE_SECRET);
+    if (ciph != NULL)
+        XFREE(ciph, ssl->heap, DYNAMIC_TYPE_SECRET);
+    if (kem != NULL)
+        XFREE(kem, NULL, NULL);
 
     return ret;
 }
-#endif /* HAVE_NTRU */
+#endif /* HAVE_LIBOQS */
 
 int QSH_Init(WOLFSSL* ssl)
 {
@@ -23874,25 +23921,28 @@ int QSH_Init(WOLFSSL* ssl)
 }
 
 
-static int QSH_Encrypt(QSHKey* key, byte* in, word32 szIn,
-                                                       byte* out, word32* szOut)
+static int QSH_Encapsulate(QSHKey* key, byte* secret, word32* szSecret,
+                           byte* ciph, word32* szCiph)
 {
     int ret = 0;
-    word16 size = *szOut;
+    word16 secret_size = *szSecret;
+    word16 cipher_size = *szCiph;
 
     (void)in;
     (void)szIn;
     (void)out;
     (void)szOut;
 
-    WOLFSSL_MSG("Encrypting QSH key material");
+    WOLFSSL_MSG("Encapsulating QSH key material");
 
     switch (key->name) {
-    #ifdef HAVE_NTRU
-        case WOLFSSL_NTRU_EESS439:
-        case WOLFSSL_NTRU_EESS593:
-        case WOLFSSL_NTRU_EESS743:
-            ret = NtruSecretEncrypt(key, in, szIn, out, &size);
+    #ifdef HAVE_LIBOQS
+        case WOLFSSL_NTRU_HPS2048_509:
+        case WOLFSSL_NTRU_HPS2048_677:
+        case WOLFSSL_NTRU_HPS4096_821:
+        case WOLFSSL_NTRU_HRSS_701:
+            ret = OqsSecretEncapsulate(key, secret, &secret_size,
+                                       ciph, &cipher_size);
             break;
     #endif
         default:
@@ -23900,14 +23950,16 @@ static int QSH_Encrypt(QSHKey* key, byte* in, word32 szIn,
             return -1;
     }
 
-    *szOut = size;
+    *szSecret = secret_size;
+    *szCiph = cipher_size;
 
     return ret;
 }
 
 
-/* Decrypt using Quantum Safe Handshake algorithms */
-int QSH_Decrypt(QSHKey* key, byte* in, word32 szIn, byte* out, word16* szOut)
+/* Decapsulate using Quantum Safe Handshake algorithms */
+int QSH_Decapsulate(QSHKey* key, byte* in, word32 szIn,
+                    byte* out, word16* szOut)
 {
     int ret = 0;
     word16 size = *szOut;
@@ -23917,14 +23969,15 @@ int QSH_Decrypt(QSHKey* key, byte* in, word32 szIn, byte* out, word16* szOut)
     (void)out;
     (void)szOut;
 
-    WOLFSSL_MSG("Decrypting QSH key material");
+    WOLFSSL_MSG("Decapsulating QSH key material");
 
     switch (key->name) {
-    #ifdef HAVE_NTRU
-        case WOLFSSL_NTRU_EESS439:
-        case WOLFSSL_NTRU_EESS593:
-        case WOLFSSL_NTRU_EESS743:
-            ret = NtruSecretDecrypt(key, in, szIn, out, &size);
+    #ifdef HAVE_LIBOQS
+        case WOLFSSL_NTRU_HPS2048_509:
+        case WOLFSSL_NTRU_HPS2048_677:
+        case WOLFSSL_NTRU_HPS4096_821:
+        case WOLFSSL_NTRU_HRSS_701:
+            ret = OqsSecretDecapsulate(key, in, szIn, out, &size);
             break;
     #endif
         default:
@@ -23944,48 +23997,29 @@ int QSH_Decrypt(QSHKey* key, byte* in, word32 szIn, byte* out, word16* szOut)
 static word32 QSH_MaxSecret(QSHKey* key)
 {
     int ret = 0;
-#ifdef HAVE_NTRU
-    byte isNtru = 0;
-    word16 inSz = 48;
-    word16 outSz;
-    DRBG_HANDLE drbg = 0;
-    byte bufIn[48];
-#endif
 
     if (key == NULL || key->pub.length == 0)
         return 0;
 
     switch(key->name) {
-#ifdef HAVE_NTRU
-            case WOLFSSL_NTRU_EESS439:
-                isNtru   = 1;
+#ifdef HAVE_LIBOQS
+            case WOLFSSL_NTRU_HPS2048_509:
+                ret = OQS_KEM_ntru_hps2048509_length_ciphertext;
                 break;
-            case WOLFSSL_NTRU_EESS593:
-                isNtru   = 1;
+            case WOLFSSL_NTRU_HPS2048_677:
+                ret = OQS_KEM_ntru_hps2048677_length_ciphertext;
                 break;
-            case WOLFSSL_NTRU_EESS743:
-                isNtru   = 1;
+            case WOLFSSL_NTRU_HPS4096_821:
+                ret = OQS_KEM_ntru_hps4096821_length_ciphertext;
+                break;
+            case WOLFSSL_NTRU_HRSS_701:
+                ret = OQS_KEM_ntru_hrss701_length_ciphertext;
                 break;
 #endif
         default:
             WOLFSSL_MSG("Unknown QSH encryption scheme size!");
             return 0;
     }
-
-#ifdef HAVE_NTRU
-    if (isNtru) {
-        ret = ntru_crypto_drbg_external_instantiate(GetEntropy, &drbg);
-        if (ret != DRBG_OK)
-            return NTRU_DRBG_ERROR;
-        ret = ntru_crypto_ntru_encrypt(drbg, key->pub.length,
-                            key->pub.buffer, inSz, bufIn, &outSz, NULL);
-        if (ret != NTRU_OK) {
-            return NTRU_ENCRYPT_ERROR;
-        }
-        ntru_crypto_drbg_uninstantiate(drbg);
-        ret = outSz;
-    }
-#endif
 
     return ret;
 }
@@ -24068,10 +24102,6 @@ static int QSH_GenerateSerCliSecret(WOLFSSL* ssl, byte isServer)
             continue;
         }
 
-        if (wc_RNG_GenerateBlock(ssl->rng, buf->buffer + offset, plainSz)
-                                                                         != 0) {
-            return -1;
-        }
         if (QSH_Encrypt(current, buf->buffer + offset, plainSz, schm->PK,
                                                                  &tmpSz) != 0) {
             return -1;
@@ -24328,13 +24358,13 @@ int SendClientKeyExchange(WOLFSSL* ssl)
 
                     break;
             #endif /* (HAVE_ECC || HAVE_CURVE25519 || HAVE_CURVE448) && !NO_PSK */
-            #ifdef HAVE_NTRU
+            #ifdef HAVE_LIBOQS
                 case ntru_kea:
                     if (ssl->peerNtruKeyPresent == 0) {
                         ERROR_OUT(NO_PEER_KEY, exit_scke);
                     }
                     break;
-            #endif /* HAVE_NTRU */
+            #endif /* HAVE_LIBOQS */
             #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                 case ecc_diffie_hellman_kea:
@@ -24760,7 +24790,7 @@ int SendClientKeyExchange(WOLFSSL* ssl)
                     break;
                 }
             #endif /* (HAVE_ECC || HAVE_CURVE25519 || HAVE_CURVE448) && !NO_PSK */
-            #ifdef HAVE_NTRU
+            #ifdef HAVE_LIBOQS
                 case ntru_kea:
                 {
                     ret = wc_RNG_GenerateBlock(ssl->rng,
@@ -24773,7 +24803,7 @@ int SendClientKeyExchange(WOLFSSL* ssl)
                     args->encSz = MAX_ENCRYPT_SZ;
                     break;
                 }
-            #endif /* HAVE_NTRU */
+            #endif /* HAVE_LIBOQS */
             #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                 case ecc_diffie_hellman_kea:
@@ -24982,32 +25012,31 @@ int SendClientKeyExchange(WOLFSSL* ssl)
                     break;
                 }
             #endif /* (HAVE_ECC || HAVE_CURVE25519 || HAVE_CURVE448) && !NO_PSK */
-            #ifdef HAVE_NTRU
+            #ifdef HAVE_LIBOQS
                 case ntru_kea:
                 {
-                    word32 rc;
-                    word16 tmpEncSz = (word16)args->encSz;
-                    DRBG_HANDLE drbg;
+                    int rc;
+                    OQS_KEM* kem = NULL;
 
-                    rc = ntru_crypto_drbg_external_instantiate(GetEntropy, &drbg);
-                    if (rc != DRBG_OK) {
-                        ERROR_OUT(NTRU_DRBG_ERROR, exit_scke);
+                    //TODO: Will algo be constant?  Can I somehow have cipher suite choose ntru type?
+                    kem = OQS_KEM_new(OQS_KEM_alg_ntru_hps2048677);
+                    if (kem == NULL) {
+                        ERROR_OUT(OQS_INIT_ERROR, exit_scke);
                     }
-                    rc = ntru_crypto_ntru_encrypt(drbg, ssl->peerNtruKeyLen,
-                                                  ssl->peerNtruKey,
-                                                  ssl->arrays->preMasterSz,
-                                                  ssl->arrays->preMasterSecret,
-                                                  &tmpEncSz,
-                                                  args->encSecret);
-                    args->encSz = tmpEncSz;
-                    ntru_crypto_drbg_uninstantiate(drbg);
-                    if (rc != NTRU_OK) {
-                        ERROR_OUT(NTRU_ENCRYPT_ERROR, exit_scke);
+                    rc = OQS_KEM_encaps(kem, args->encSecret,
+                                        ssl->arrays->preMasterSecret,
+                                        ssl->peerNtruKey);
+                    if (rc != OQS_SUCCESS) {
+                        ERROR_OUT(OQS_ENCRYPT_ERROR, exit_scke);
                     }
+                    args->encSz = kem->length_ciphertext;
+                    ssl->arrays->preMasterSz = kem->length_shared_secret;
+                    ssl->peerNtruKeyLen = kem->length_public_key;
+                    XFREE(kem, NULL, NULL);
                     ret = 0;
                     break;
                 }
-            #endif /* HAVE_NTRU */
+            #endif /* HAVE_LIBOQS */
             #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                 case ecc_diffie_hellman_kea:
@@ -25180,12 +25209,12 @@ int SendClientKeyExchange(WOLFSSL* ssl)
                     break;
                 }
             #endif /* (HAVE_ECC || HAVE_CURVE25519 || HAVE_CURVE448) && !NO_PSK */
-            #ifdef HAVE_NTRU
+            #ifdef HAVE_LIBOQS
                 case ntru_kea:
                 {
                     break;
                 }
-            #endif /* HAVE_NTRU */
+            #endif /* HAVE_LIBOQS */
             #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                 case ecc_diffie_hellman_kea:
@@ -30644,7 +30673,7 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
                         break;
                     }
                 #endif /* !NO_PSK */
-                #ifdef HAVE_NTRU
+                #ifdef HAVE_LIBOQS
                     case ntru_kea:
                     {
                         /* make sure private key exists */
@@ -30654,7 +30683,7 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
                         }
                         break;
                     }
-                #endif /* HAVE_NTRU */
+                #endif /* HAVE_LIBOQS */
                 #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                     case ecc_diffie_hellman_kea:
@@ -30815,11 +30844,12 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
                         break;
                     }
                 #endif /* !NO_PSK */
-                #ifdef HAVE_NTRU
+                #ifdef HAVE_LIBOQS
                     case ntru_kea:
                     {
                         word16 cipherLen;
                         word16 plainLen = ENCRYPT_LEN;
+                        OQS_KEM* kem = NULL;
 
                         if ((args->idx - args->begin) + OPAQUE16_LEN > size) {
                             ERROR_OUT(BUFFER_ERROR, exit_dcke);
@@ -30829,30 +30859,40 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
                         args->idx += OPAQUE16_LEN;
 
                         if (cipherLen > MAX_NTRU_ENCRYPT_SZ) {
-                            ERROR_OUT(NTRU_KEY_ERROR, exit_dcke);
+                            ERROR_OUT(OQS_KEY_ERROR, exit_dcke);
                         }
 
                         if ((args->idx - args->begin) + cipherLen > size) {
                             ERROR_OUT(BUFFER_ERROR, exit_dcke);
                         }
 
-                        if (NTRU_OK != ntru_crypto_ntru_decrypt(
-                                    (word16) ssl->buffers.key->length,
-                                    ssl->buffers.key->buffer, cipherLen,
-                                    input + args->idx, &plainLen,
-                                    ssl->arrays->preMasterSecret)) {
-                            ERROR_OUT(NTRU_DECRYPT_ERROR, exit_dcke);
+                        kem = OQS_KEM_new(OQS_KEM_alg_ntru_hps2048677);
+                        if (kem == NULL) {
+                            ERROR_OUT(OQS_INIT_ERROR, exit_dcke);
                         }
 
+                        if (OQS_SUCCESS != OQS_KEM_decaps(kem,
+                                             ssl->arrays->preMasterSecret,
+                                             input + args->idx,
+                                             ssl->buffers.key->buffer)) {
+                            XFREE(kem, NULL, NULL);
+                            ERROR_OUT(OQS_DECRYPT_ERROR, exit_dcke);
+                        }
+                        // TODO: Which lengths do I need to set here?
+                        ssl->buffers.key->length = kem->length_secret_key;
+                        cipherLen = kem->length_ciphertext;
+                        plainLen = kem->length_shared_secret;
+
+                        // TODO: Is this still valid?
                         if (plainLen != SECRET_LEN) {
-                            ERROR_OUT(NTRU_DECRYPT_ERROR, exit_dcke);
+                            ERROR_OUT(OQS_DECRYPT_ERROR, exit_dcke);
                         }
 
                         args->idx += cipherLen;
                         ssl->arrays->preMasterSz = plainLen;
                         break;
                     }
-                #endif /* HAVE_NTRU */
+                #endif /* HAVE_LIBOQS */
                 #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                     case ecc_diffie_hellman_kea:
@@ -31403,12 +31443,12 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
                         break;
                     }
                 #endif /* !NO_PSK */
-                #ifdef HAVE_NTRU
+                #ifdef HAVE_LIBOQS
                     case ntru_kea:
                     {
                         break;
                     }
-                #endif /* HAVE_NTRU */
+                #endif /* HAVE_LIBOQS */
                 #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                     case ecc_diffie_hellman_kea:
@@ -31638,12 +31678,12 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
                         break;
                     }
                 #endif /* !NO_PSK */
-                #ifdef HAVE_NTRU
+                #ifdef HAVE_LIBOQS
                     case ntru_kea:
                     {
                         break;
                     }
-                #endif /* HAVE_NTRU */
+                #endif /* HAVE_LIBOQS */
                 #if defined(HAVE_ECC) || defined(HAVE_CURVE25519) || \
                                                           defined(HAVE_CURVE448)
                     case ecc_diffie_hellman_kea:

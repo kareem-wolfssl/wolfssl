@@ -328,8 +328,8 @@ _Pragma("GCC diagnostic ignored \"-Wunused-function\"")
 
 #include <wolfssl/certs_test.h>
 
-#ifdef HAVE_NTRU
-    #include "libntruencrypt/ntru_crypto.h"
+#ifdef HAVE_LIBOQS
+    #include <oqs/oqs.h>
 #endif
 
 #ifdef DEVKITPRO
@@ -11902,34 +11902,6 @@ WOLFSSL_TEST_SUBROUTINE int memory_test(void)
 }
 
 
-#ifdef HAVE_NTRU
-
-byte GetEntropy(ENTROPY_CMD cmd, byte* out);
-
-byte GetEntropy(ENTROPY_CMD cmd, byte* out)
-{
-    static WC_RNG rng;
-
-    if (cmd == INIT)
-        return (wc_InitRng(&rng) == 0) ? 1 : 0;
-
-    if (out == NULL)
-        return 0;
-
-    if (cmd == GET_BYTE_OF_ENTROPY)
-        return (wc_RNG_GenerateBlock(&rng, out, 1) == 0) ? 1 : 0;
-
-    if (cmd == GET_NUM_BYTES_PER_BYTE_OF_ENTROPY) {
-        *out = 1;
-        return 1;
-    }
-
-    return 0;
-}
-
-#endif /* HAVE_NTRU */
-
-
 #ifndef NO_FILESYSTEM
 
 /* Cert Paths */
@@ -12175,7 +12147,7 @@ static const CertName certDefaultName = {
     WOLFSSL_SMALL_STACK_STATIC const char certKeyUsage[] =
         "digitalSignature,nonRepudiation";
     #endif
-    #if (defined(WOLFSSL_CERT_REQ) || defined(HAVE_NTRU)) && !defined(NO_RSA)
+    #if (defined(WOLFSSL_CERT_REQ) || defined(HAVE_LIBOQS)) && !defined(NO_RSA)
         WOLFSSL_SMALL_STACK_STATIC const char certKeyUsage2[] =
         "digitalSignature,nonRepudiation,keyEncipherment,keyAgreement";
     #endif
