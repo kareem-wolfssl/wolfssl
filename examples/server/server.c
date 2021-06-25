@@ -661,7 +661,7 @@ static void SetKeyShare(WOLFSSL* ssl, int onlyKeyShare, int useX25519,
                 groups[count] = WOLFSSL_KYBER768;
             }
             else if(XSTRNCMP(oqsAlg, "KYBER1024",
-                                XSTRLEN("KYBER1024")) == 0) {
+                                XSTRLEN("KYBER1024")) == 0) { 
                 groups[count] = WOLFSSL_KYBER1024;
             }
             else if(XSTRNCMP(oqsAlg, "NTRU_HPS2048509",
@@ -861,12 +861,6 @@ static const char* server_usage_msg[][58] = {
 #ifdef HAVE_CURVE25519
         "-t          Pre-generate Key share using Curve25519 only\n",   /* 43 */
 #endif
-#ifdef HAVE_LIBOQS
-        "-7 <alg>    Pre-generate Key Share using specified liboqs algorithm only\n",    /* TBD */
-        "[KYBER512, KYBER768, KYBER1024, KYBER90S512, KYBER90S768, KYBER90S1024,\n",
-        " NTRU_HPS2048509, NTRU_HPS2048677, NTRU_HPS4096821, NTRU_HRSS701,\n",
-        " LIGHTSABER, SABER, FIRESABER]\n"
-#endif
 #endif /* WOLFSSL_TLS13 */
 #ifdef HAVE_SESSION_TICKET
 #if defined(WOLFSSL_NO_TLS12) && defined(NO_OLD_TLS)
@@ -917,6 +911,12 @@ static const char* server_usage_msg[][58] = {
 #if defined(WOLFSSL_WOLFSENTRY_HOOKS) && !defined(NO_FILESYSTEM) && !defined(WOLFSENTRY_NO_JSON)
         "--wolfsentry-config <file>    Path for JSON wolfSentry config\n",
                                                                        /* 58 */
+#endif
+#ifdef HAVE_LIBOQS
+        "--oqs <alg>    Pre-generate Key Share using specified liboqs algorithm only\n",
+        "[KYBER512, KYBER768, KYBER1024, KYBER90S512, KYBER90S768, KYBER90S1024,\n",
+        " NTRU_HPS2048509, NTRU_HPS2048677, NTRU_HPS4096821, NTRU_HRSS701,\n",
+        " LIGHTSABER, SABER, FIRESABER]\n",                            /* 59 */
 #endif
         NULL,
     },
@@ -1158,12 +1158,6 @@ static void Usage(void)
 #ifdef HAVE_CURVE25519
     printf("%s", msg[++msgId]);     /* -t */
 #endif
-#ifdef HAVE_LIBOQS
-    printf("%s", msg[++msgId]);     /* -7 */
-    printf("%s", msg[++msgId]);     /* -7 options */
-    printf("%s", msg[++msgId]);     /* more -7 options */
-    printf("%s", msg[++msgId]);     /* more -7 options */
-#endif
 #endif /* WOLFSSL_TLS13 */
 #ifdef HAVE_SESSION_TICKET
     printf("%s", msg[++msgId]);     /* -T */
@@ -1212,6 +1206,12 @@ static void Usage(void)
     !defined(WOLFSENTRY_NO_JSON)
     printf("%s", msg[++msgId]); /* --wolfsentry-config */
 #endif
+#ifdef HAVE_LIBOQS
+    printf("%s", msg[++msgId]);     /* --oqs */
+    printf("%s", msg[++msgId]);     /* --oqs options */
+    printf("%s", msg[++msgId]);     /* more --oqs options */
+    printf("%s", msg[++msgId]);     /* more --oqs options */
+#endif
 }
 
 THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
@@ -1239,6 +1239,9 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
 #endif
         { "help", 0, 257 },
         { "ヘルプ", 0, 258 },
+#if defined(HAVE_LIBOQS)
+        { "oqs", 1, 259 },
+#endif
         { 0, 0, 0 }
     };
 #endif
@@ -1457,11 +1460,11 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
     /* Reinitialize the global myVerifyAction. */
     myVerifyAction = VERIFY_OVERRIDE_ERROR;
 
-    /* Not Used: h, z, W, X */
+    /* Not Used: h, z, W, X, 7 */
     while ((ch = mygetopt_long(argc, argv, "?:"
                 "abc:defgijk:l:mnop:q:rstu;v:wxy"
                 "A:B:C:D:E:FGH:IJKL:MNO:PQR:S:T;UVYZ:"
-                "01:23:4:567:89"
+                "01:23:4:5689"
                 "@#", long_options, 0)) != -1) {
         switch (ch) {
             case '?' :
@@ -1776,14 +1779,6 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
                 #endif
                 break;
 
-            case '7':
-                #ifdef HAVE_LIBOQS
-                    useLibOqs = 1;
-                    onlyKeyShare = 2;
-                    oqsAlg = myoptarg;
-                #endif
-                break;
-
             case 'K' :
                 #ifdef WOLFSSL_TLS13
                     noPskDheKe = 1;
@@ -1960,6 +1955,14 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
 #endif
                 break;
 #endif
+
+            case 259:
+#ifdef HAVE_LIBOQS
+                useLibOqs = 1;
+                onlyKeyShare = 2;
+                oqsAlg = myoptarg;
+#endif
+                break;
 
             default:
                 Usage();

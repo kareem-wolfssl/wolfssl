@@ -1204,12 +1204,6 @@ static const char* client_usage_msg[][68] = {
         "-5          Use Trusted CA Key Indication\n",                  /* 63 */
 #endif
         "-6          Simulate WANT_WRITE errors on every other IO send\n",
-#ifdef HAVE_LIBOQS
-        "-7 <alg>    Key Share with specified liboqs algorithm only\n",    /* TBD */
-        "[KYBER512, KYBER768, KYBER1024, KYBER90S512, KYBER90S768, KYBER90S1024,\n",
-        " NTRU_HPS2048509, NTRU_HPS2048677, NTRU_HPS4096821, NTRU_HRSS701,\n",
-        " LIGHTSABER, SABER, FIRESABER]\n",
-#endif
 #ifdef HAVE_CURVE448
         "-8          Use X448 for key exchange\n",                      /* 66 */
 #endif
@@ -1227,6 +1221,12 @@ static const char* client_usage_msg[][68] = {
     !defined(WOLFSENTRY_NO_JSON)
         "--wolfsentry-config <file>    Path for JSON wolfSentry config\n",
                                                                        /* 68 */
+#endif
+#ifdef HAVE_LIBOQS
+        "--oqs <alg>    Key Share with specified liboqs algorithm only\n",
+        "[KYBER512, KYBER768, KYBER1024, KYBER90S512, KYBER90S768, KYBER90S1024,\n",
+        " NTRU_HPS2048509, NTRU_HPS2048677, NTRU_HPS4096821, NTRU_HRSS701,\n",
+        " LIGHTSABER, SABER, FIRESABER]\n", /* 69 */
 #endif
         NULL,
     },
@@ -1589,12 +1589,6 @@ static void Usage(void)
     printf("%s", msg[++msgid]);  /* -5 */
 #endif
     printf("%s", msg[++msgid]);  /* -6 */
-#ifdef HAVE_LIBOQS
-    printf("%s", msg[++msgid]);     /* -7 */
-    printf("%s", msg[++msgid]);     /* -7 options */
-    printf("%s", msg[++msgid]);     /* more -7 options */
-    printf("%s", msg[++msgid]);     /* more -7 options */
-#endif
 #ifdef HAVE_CURVE448
     printf("%s", msg[++msgid]); /* -8 */
 #endif
@@ -1606,6 +1600,12 @@ static void Usage(void)
 #if defined(WOLFSSL_WOLFSENTRY_HOOKS) && !defined(NO_FILESYSTEM) && \
     !defined(WOLFSENTRY_NO_JSON)
     printf("%s", msg[++msgid]); /* --wolfsentry-config */
+#endif
+#ifdef HAVE_LIBOQS
+    printf("%s", msg[++msgid]);     /* --oqs */
+    printf("%s", msg[++msgid]);     /* --oqs options */
+    printf("%s", msg[++msgid]);     /* more --oqs options */
+    printf("%s", msg[++msgid]);     /* more --oqs options */
 #endif
 }
 
@@ -1645,6 +1645,9 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
 #endif
         { "help", 0, 257 },
         { "ヘルプ", 0, 258 },
+#if defined(HAVE_LIBOQS)
+        { "oqs", 1, 259 },
+#endif
         { 0, 0, 0 }
     };
 #endif
@@ -2340,16 +2343,6 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
                 }
                 break;
 
-            /* TODO: Fixme!  Need another option
-            case '7':
-                #if defined(WOLFSSL_TLS13) && \
-                    defined(HAVE_SUPPORTED_CURVES) && defined(HAVE_LIBOQS)
-                    useLibOqs = 1;
-                    onlyKeyShare = 3;
-                    oqsAlg = myoptarg;
-                #endif
-                break;*/
-
             case '8' :
                 #ifdef HAVE_CURVE448
                     useX448 = 1;
@@ -2410,6 +2403,15 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
 #endif
                 break;
 #endif
+
+            case 259:
+#if defined(WOLFSSL_TLS13) &&  defined(HAVE_SUPPORTED_CURVES) && \
+    defined(HAVE_LIBOQS)
+                useLibOqs = 1;
+                onlyKeyShare = 3;
+                oqsAlg = myoptarg;
+#endif
+                break;
 
             default:
                 Usage();
@@ -3054,8 +3056,8 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
         ((func_args*)args)->return_code =
             ClientBenchmarkConnections(ctx, host, port, dtlsUDP, dtlsSCTP,
                                        benchmark, resumeSession, useX25519,
-                                       useX448, helloRetry, onlyKeyShare,
-                                       version, earlyData);
+                                       useX448, useLibOqs, oqsAlg, helloRetry,
+                                       onlyKeyShare, version, earlyData);
         wolfSSL_CTX_free(ctx); ctx = NULL;
         XEXIT_T(EXIT_SUCCESS);
     }
@@ -3064,7 +3066,8 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
         ((func_args*)args)->return_code =
             ClientBenchmarkThroughput(ctx, host, port, dtlsUDP, dtlsSCTP,
                                       block, throughput, useX25519, useX448,
-                                      exitWithRet, version, onlyKeyShare);
+                                      useLibOqs, oqsAlg, exitWithRet, version,
+                                      onlyKeyShare);
         wolfSSL_CTX_free(ctx); ctx = NULL;
         if (!exitWithRet)
             XEXIT_T(EXIT_SUCCESS);

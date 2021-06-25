@@ -733,7 +733,11 @@ enum AlertLevel {
 /* Maximum master key length (SECRET_LEN) */
 #define WOLFSSL_MAX_MASTER_KEY_LENGTH 48
 /* Maximum number of groups that can be set */
+#ifdef HAVE_LIBOQS
+#define WOLFSSL_MAX_GROUP_COUNT       23
+#else
 #define WOLFSSL_MAX_GROUP_COUNT       10
+#endif
 
 #if defined(HAVE_SECRET_CALLBACK) && defined(WOLFSSL_TLS13)
 enum Tls13Secret {
