@@ -18950,7 +18950,7 @@ int wc_MIME_parse_headers(char* in, int inLen, MimeHdr** headers)
     char* bodyVal = NULL;
     MimeTypes mimeType = MIME_HDR;
     MimeStatus mimeStatus = MIME_NAMEATTR;
-    int ret = -1;
+    int ret = 0;
     size_t pos = 0;
     size_t lineLen = 0;
     char* curLine = NULL;
@@ -19092,14 +19092,12 @@ int wc_MIME_parse_headers(char* in, int inLen, MimeHdr** headers)
         mimeStatus = MIME_NAMEATTR;
     }
 
-    *headers = curHdr;
-    XFREE(nextHdr, NULL, DYNAMIC_TYPE_PKCS7);
-    XFREE(nextParam, NULL, DYNAMIC_TYPE_PKCS7);
-
-    return 0;
-
 error:
-    wc_MIME_free_hdrs(curHdr);
+    if (ret != 0) {
+        wc_MIME_free_hdrs(curHdr);
+    } else {
+        *headers = curHdr;
+    }
     wc_MIME_free_hdrs(nextHdr);
     if (nameAttr != NULL)
         XFREE(nameAttr, NULL, DYNAMIC_TYPE_PKCS7);
