@@ -395,7 +395,7 @@ int ServerEchoData(SSL* ssl, int clientfd, int echoData, int block,
             /* Read data */
             while (rx_pos < len) {
                 ret = SSL_read(ssl, &buffer[rx_pos], len - rx_pos);
-                if (ret < 0) {
+                if (ret <= 0) {
                     err = SSL_get_error(ssl, 0);
                 #ifdef WOLFSSL_ASYNC_CRYPT
                     if (err == WC_PENDING_E) {
@@ -3090,6 +3090,12 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
                     if (err == WOLFSSL_ERROR_WANT_READ ||
                             err == WOLFSSL_ERROR_WANT_WRITE) {
                         do {
+                        #ifdef WOLFSSL_ASYNC_CRYPT
+                            if (err == WC_PENDING_E) {
+                                ret = wolfSSL_AsyncPoll(ssl, WOLF_POLL_FLAG_CHECK_HW);
+                                if (ret < 0) break;
+                            }
+                        #endif
                             if (err == APP_DATA_READY) {
                                 if (wolfSSL_read(ssl, input, sizeof(input)-1) < 0) {
                                     err_sys("APP DATA should be present but error returned");
@@ -3103,19 +3109,16 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
                         } while (ret != WOLFSSL_SUCCESS &&
                                 (err == WOLFSSL_ERROR_WANT_READ ||
                                         err == WOLFSSL_ERROR_WANT_WRITE ||
-                                        err == APP_DATA_READY));
+                                        err == APP_DATA_READY ||
+                                        err == WC_PENDING_E));
 
-                        if (ret != WOLFSSL_SUCCESS) {
-                            err = wolfSSL_get_error(ssl, 0);
-                            printf("wolfSSL_Rehandshake error %d, %s\n", err,
-                                wolfSSL_ERR_error_string(err, buffer));
-                            wolfSSL_free(ssl); ssl = NULL;
-                            wolfSSL_CTX_free(ctx); ctx = NULL;
-                            err_sys("non-blocking wolfSSL_Rehandshake failed");
+                        if (ret == WOLFSSL_SUCCESS) {
+                            printf("NON-BLOCKING RENEGOTIATION SUCCESSFUL\n");
+                            err = 0;
                         }
-                        printf("NON-BLOCKING RENEGOTIATION SUCCESSFUL\n");
                     }
-                    else {
+                    if (ret != WOLFSSL_SUCCESS) {
+                        err = wolfSSL_get_error(ssl, 0);
                         printf("wolfSSL_Rehandshake error %d, %s\n", err,
                             wolfSSL_ERR_error_string(err, buffer));
                         wolfSSL_free(ssl); ssl = NULL;
@@ -3180,6 +3183,8 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
         }
         else if (err == 0 || err == WOLFSSL_ERROR_ZERO_RETURN) {
             err = ServerEchoData(ssl, clientfd, echoData, block, throughput);
+            if (err == WOLFSSL_ERROR_ZERO_RETURN && runWithErrors == 1) /* Got close notify */
+                err = 0;
             if (err != 0) {
                 SSL_free(ssl); ssl = NULL;
                 SSL_CTX_free(ctx); ctx = NULL;
@@ -3196,13 +3201,11 @@ THREAD_RETURN WOLFSSL_THREAD server_test(void* args)
         Task_yield();
 #endif
 
-        if (dtlsUDP == 0) {
-            ret = SSL_shutdown(ssl);
-            if (wc_shutdown && ret == WOLFSSL_SHUTDOWN_NOT_DONE) {
-                ret = SSL_shutdown(ssl); /* bidirectional shutdown */
-                if (ret == WOLFSSL_SUCCESS)
-                    printf("Bidirectional shutdown complete\n");
-            }
+        ret = SSL_shutdown(ssl);
+        if (wc_shutdown && ret == WOLFSSL_SHUTDOWN_NOT_DONE) {
+            ret = SSL_shutdown(ssl); /* bidirectional shutdown */
+            if (ret == WOLFSSL_SUCCESS)
+                printf("Bidirectional shutdown complete\n");
         }
 
         /* display collected statistics */
@@ -3315,6 +3318,9 @@ exit:
         wolfSSL_Debugging_ON();
 #endif
         wolfSSL_Init();
+#ifdef WC_RNG_SEED_CB
+        wc_SetSeed_Cb(wc_GenerateSeed);
+#endif
         ChangeToWolfRoot();
 
 #ifndef NO_WOLFSSL_SERVER

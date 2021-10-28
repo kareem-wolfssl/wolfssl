@@ -9993,7 +9993,8 @@ WOLFSSL_API int EccEnumToNID(int n)
 #endif /* HAVE_ECC */
 #endif /* OPENSSL_EXTRA || OPENSSL_EXTRA_X509_SMALL */
 
-#if defined(OPENSSL_EXTRA) || defined(OPENSSL_EXTRA_X509_SMALL)
+#if (defined(OPENSSL_EXTRA) || defined(OPENSSL_EXTRA_X509_SMALL)) \
+    && !defined(WOLFCRYPT_ONLY)
 /* Convert shortname to NID.
  *
  * For OpenSSL compatability.
@@ -15558,11 +15559,14 @@ exit:
     #endif
 
         WOLFSSL_ENTER("DecodeCertPolicy");
-        #if defined(WOLFSSL_SEP) || defined(WOLFSSL_CERT_EXT)
+
+    #if defined(WOLFSSL_SEP) || defined(WOLFSSL_CERT_EXT)
         /* Check if cert is null before dereferencing below */
         if (cert == NULL)
             return BAD_FUNC_ARG;
-        #endif
+    #else
+        (void)cert;
+    #endif
 
     #if defined(WOLFSSL_CERT_EXT)
          cert->extCertPoliciesNb = 0;
@@ -20113,7 +20117,9 @@ static int SetEccPublicKey(byte* output, ecc_key* key, int outLen,
         ret = BAD_FUNC_ARG;
     }
     else {
+        PRIVATE_KEY_UNLOCK();
         ret = wc_ecc_export_x963(key, pub, &pubSz);
+        PRIVATE_KEY_LOCK();
     }
 #else
     ret = wc_ecc_export_x963(key, pub, &pubSz);
@@ -20198,7 +20204,9 @@ static int SetEccPublicKey(byte* output, ecc_key* key, int outLen,
 
     if (ret == 0) {
         /* Calculate the size of the encoded public point. */
+        PRIVATE_KEY_UNLOCK();
         ret = wc_ecc_export_x963(key, NULL, &pubSz);
+        PRIVATE_KEY_LOCK();
         /* LENGTH_ONLY_E on success. */
         if (ret == LENGTH_ONLY_E) {
             ret = 0;
@@ -20247,7 +20255,9 @@ static int SetEccPublicKey(byte* output, ecc_key* key, int outLen,
 
     if ((ret == 0) && (output != NULL)) {
         /* Encode public point. */
+        PRIVATE_KEY_UNLOCK();
         ret = wc_ecc_export_x963(key, output, &pubSz);
+        PRIVATE_KEY_LOCK();
     }
     if (ret == 0) {
         /* Return the size of the encoding. */
@@ -20300,7 +20310,9 @@ int wc_EccPublicKeyToDer(ecc_key* key, byte* output, word32 inLen,
         ret = LENGTH_ONLY_E;
     }
     else {
+        PRIVATE_KEY_UNLOCK();
         ret = wc_ecc_export_x963(key, NULL, &keySz);
+        PRIVATE_KEY_LOCK();
     }
 #else
     ret = wc_ecc_export_x963(key, NULL, &keySz);
@@ -26413,7 +26425,9 @@ static int wc_BuildEccKeyDer(ecc_key* key, byte* output, word32 *inLen,
 
     /* pubIn */
     if (pubIn) {
+        PRIVATE_KEY_UNLOCK();
         ret = wc_ecc_export_x963(key, NULL, &pubSz);
+        PRIVATE_KEY_LOCK();
         if (ret != LENGTH_ONLY_E) {
         #ifndef WOLFSSL_NO_MALLOC
             XFREE(prv, key->heap, DYNAMIC_TYPE_TMP_BUFFER);
@@ -26442,7 +26456,9 @@ static int wc_BuildEccKeyDer(ecc_key* key, byte* output, word32 *inLen,
 
         /* SetBitString adds leading zero */
         pubidx += SetBitString(pubSz, 0, pub + pubidx);
+        PRIVATE_KEY_UNLOCK();
         ret = wc_ecc_export_x963(key, pub + pubidx, &pubSz);
+        PRIVATE_KEY_LOCK();
         if (ret != 0) {
         #ifndef WOLFSSL_NO_MALLOC
             XFREE(prv, key->heap, DYNAMIC_TYPE_TMP_BUFFER);
@@ -26531,7 +26547,9 @@ static int wc_BuildEccKeyDer(ecc_key* key, byte* output, word32 *inLen,
         privSz = key->dp->size;
         if (pubIn) {
             /* Get the length of the public key. */
+            PRIVATE_KEY_UNLOCK();
             ret = wc_ecc_export_x963(key, NULL, &pubSz);
+            PRIVATE_KEY_LOCK();
             if (ret == LENGTH_ONLY_E)
                 ret = 0;
         }
@@ -26580,8 +26598,10 @@ static int wc_BuildEccKeyDer(ecc_key* key, byte* output, word32 *inLen,
                 (byte*)dataASN[2].data.buffer.data, &privSz);
         if ((ret == 0) && pubIn) {
             /* Export the public point into the buffer. */
+            PRIVATE_KEY_UNLOCK();
             ret = wc_ecc_export_x963(key, (byte*)dataASN[7].data.buffer.data,
                     &pubSz);
+            PRIVATE_KEY_LOCK();
         }
     }
     if (ret == 0) {

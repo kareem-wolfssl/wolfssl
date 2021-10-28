@@ -3184,7 +3184,7 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
                                       useLibOqs, oqsAlg, exitWithRet, version,
                                       onlyKeyShare);
         wolfSSL_CTX_free(ctx); ctx = NULL;
-        if (!exitWithRet)
+        if (((func_args*)args)->return_code != EXIT_SUCCESS && !exitWithRet)
             XEXIT_T(EXIT_SUCCESS);
         else
             goto exit;
@@ -3710,6 +3710,12 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
                         }
                         else {
                             do {
+                            #ifdef WOLFSSL_ASYNC_CRYPT
+                                if (err == WC_PENDING_E) {
+                                    ret = wolfSSL_AsyncPoll(ssl, WOLF_POLL_FLAG_CHECK_HW);
+                                    if (ret < 0) break;
+                                }
+                            #endif
                                 if (err == APP_DATA_READY) {
                                     if (wolfSSL_read(ssl, reply,
                                             sizeof(reply)-1) < 0) {
@@ -3727,20 +3733,17 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
                             } while (ret != WOLFSSL_SUCCESS &&
                                     (err == WOLFSSL_ERROR_WANT_READ ||
                                         err == WOLFSSL_ERROR_WANT_WRITE ||
-                                        err == APP_DATA_READY));
+                                        err == APP_DATA_READY ||
+                                        err == WC_PENDING_E));
                         }
 
-                        if (ret != WOLFSSL_SUCCESS) {
-                            err = wolfSSL_get_error(ssl, 0);
-                            printf("wolfSSL_Rehandshake error %d, %s\n", err,
-                                wolfSSL_ERR_error_string(err, buffer));
-                            wolfSSL_free(ssl); ssl = NULL;
-                            wolfSSL_CTX_free(ctx); ctx = NULL;
-                            err_sys("non-blocking wolfSSL_Rehandshake failed");
+                        if (ret == WOLFSSL_SUCCESS) {
+                            printf("NON-BLOCKING RENEGOTIATION SUCCESSFUL\n");
+                            err = 0;
                         }
-                        printf("NON-BLOCKING RENEGOTIATION SUCCESSFUL\n");
                     }
-                    else {
+                    if (ret != WOLFSSL_SUCCESS) {
+                        err = wolfSSL_get_error(ssl, 0);
                         printf("wolfSSL_Rehandshake error %d, %s\n", err,
                             wolfSSL_ERR_error_string(err, buffer));
                         wolfSSL_free(ssl); ssl = NULL;
@@ -4185,6 +4188,9 @@ exit:
         wolfSSL_Debugging_ON();
 #endif
         wolfSSL_Init();
+#ifdef WC_RNG_SEED_CB
+        wc_SetSeed_Cb(wc_GenerateSeed);
+#endif
         ChangeToWolfRoot();
 
 #ifndef NO_WOLFSSL_CLIENT
