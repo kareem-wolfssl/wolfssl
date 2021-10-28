@@ -152,7 +152,12 @@ static int expect_tok(const char *cmd, int size, const char *tok, char **repl)
         *repl = parser_line + XSTRLEN(tok);
     }
     if (r_found) {
-        ret = (int)XSTRLEN(*repl);
+        if (repl) {
+            ret = (int)XSTRLEN(*repl);
+        }
+        else {
+            ret = (int)XSTRLEN(r_found);
+        }
     }
     return ret;
 }
@@ -518,44 +523,17 @@ static int iotsafe_getrandom(unsigned char* output, unsigned long sz)
 
 #ifdef HAVE_ECC
 
-static int iotsafe_gen_keypair(byte *wr_slot, unsigned long id_size)
-{
-    char *resp;
-    int ret = WC_HW_E;
-    iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_GEN_KEYPAIR, 0, 0);
-    iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_PRIVKEY_ID, id_size, wr_slot);
-    iotsafe_cmd_complete(csim_cmd);
-    if (expect_csim_response(csim_cmd, (word32)XSTRLEN(csim_cmd), &resp) < 1) {
-        WOLFSSL_MSG("Unexpected reply from Keygen");
-        ret = WC_HW_E;
-    } else {
-        ret = 0;
-    }
-    return ret;
-}
-
-static int iotsafe_get_public_key(byte *pubkey_id, unsigned long id_size,
-        ecc_key *key)
+static int iotsafe_parse_public_key(char* resp, int len, ecc_key *key)
 {
     int ret;
-    char *resp;
     char *rkey, *ktype, *payload_str;
     char Qx[IOTSAFE_ECC_KSIZE * 2 + 1], Qy[IOTSAFE_ECC_KSIZE * 2 + 1];
 
-    /* exporting generated public key */
-    iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_READ_KEY,0, 0);
-    iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_PUBKEY_ID, id_size, pubkey_id);
-    iotsafe_cmd_complete(csim_cmd);
-    ret = expect_csim_response(csim_cmd, (word32)XSTRLEN(csim_cmd), &resp);
-    if (ret < 1) {
-        WOLFSSL_MSG("Error exporting EPH public key from IoT-Safe");
-        return WC_HW_E;
-    }
-    if (ret < IOTSAFE_TAG_ECC_KEY_FIELD_SZ + 2) {
+    if (len < IOTSAFE_TAG_ECC_KEY_FIELD_SZ + 2) {
         WOLFSSL_MSG("Response from iot-safe: too short");
         return BAD_STATE_E;
     }
-    rkey = search_tlv(resp, ret, IOTSAFE_TAG_ECC_KEY_FIELD);
+    rkey = search_tlv(resp, len, IOTSAFE_TAG_ECC_KEY_FIELD);
     if (rkey == NULL) {
         WOLFSSL_MSG("IoT safe Error in rkey response");
         return MISSING_KEY;
@@ -589,6 +567,46 @@ static int iotsafe_get_public_key(byte *pubkey_id, unsigned long id_size,
     }
     WOLFSSL_MSG("Get Public key: OK");
     return 0;
+}
+static int iotsafe_gen_keypair(byte *wr_slot, unsigned long id_size,
+                               ecc_key *key)
+{
+    char *resp;
+    int ret = WC_HW_E;
+    iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_GEN_KEYPAIR, 0, 0);
+    iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_PRIVKEY_ID, id_size, wr_slot);
+    iotsafe_cmd_complete(csim_cmd);
+    ret = expect_csim_response(csim_cmd, (word32)XSTRLEN(csim_cmd), &resp);
+    if (ret < 1) {
+        WOLFSSL_MSG("Unexpected reply from Keygen");
+        ret = WC_HW_E;
+    } else {
+        if (!iotsafe_parse_public_key(resp, ret, key)) {
+            ret = 1;
+        } else {
+            ret = 0;
+        }
+    }
+    return ret;
+}
+
+static int iotsafe_get_public_key(byte *pubkey_id, unsigned long id_size,
+        ecc_key *key)
+{
+    int ret;
+    char *resp;
+
+    /* exporting generated public key */
+    iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_READ_KEY,0, 0);
+    iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_PUBKEY_ID, id_size, pubkey_id);
+    iotsafe_cmd_complete(csim_cmd);
+    ret = expect_csim_response(csim_cmd, (word32)XSTRLEN(csim_cmd), &resp);
+    if (ret < 1) {
+        WOLFSSL_MSG("Error exporting EPH public key from IoT-Safe");
+        return WC_HW_E;
+    }
+
+    return iotsafe_parse_public_key(resp, ret, key);
 }
 
 #define PUT_PK_SID 0x02
@@ -858,7 +876,7 @@ static int wolfIoT_ecc_keygen(WOLFSSL* ssl, struct ecc_key* key,
 #endif
 
     if (iotsafe->enabled) {
-        ret = iotsafe_gen_keypair((byte *)&iotsafe->ecdh_keypair_slot, IOTSAFE_ID_SIZE);
+        ret = iotsafe_gen_keypair((byte *)&iotsafe->ecdh_keypair_slot, IOTSAFE_ID_SIZE, key);
         if (ret == 0) {
             ret = iotsafe_get_public_key((byte *)&iotsafe->ecdh_keypair_slot,
                     IOTSAFE_ID_SIZE, key);
@@ -1080,7 +1098,7 @@ static int wolfIoT_ecc_shared_secret(WOLFSSL* ssl, struct ecc_key* otherKey,
         /* TLS v1.3 calls key gen already, so don't do it here */
         if (wolfSSL_GetVersion(ssl) < WOLFSSL_TLSV1_3) {
             WOLFSSL_MSG("Generating ECDH key pair");
-            ret = iotsafe_gen_keypair(keypair_slot, id_size);
+            ret = iotsafe_gen_keypair(keypair_slot, id_size, tmpKey);
             if (ret < 0) {
                 WOLFSSL_MSG("Error generating IoT-safe key pair");
             }
@@ -1243,7 +1261,12 @@ int wc_iotsafe_ecc_verify_hash_ex(byte *sig, word32 siglen, byte *hash,
 
 int wc_iotsafe_ecc_gen_k_ex(byte *key_id, uint16_t id_size)
 {
-    return iotsafe_gen_keypair(key_id, id_size);
+    int ret = 0;
+    ecc_key* key = XMALLOC(sizeof(ecc_key), NULL, DYNAMIC_TYPE_ECC);
+    ret = iotsafe_gen_keypair(key_id, id_size, key);
+    XFREE(key, NULL, DYNAMIC_TYPE_ECC);
+
+    return ret;
 }
 
 int wc_iotsafe_ecc_import_public(ecc_key *key, byte key_id)
@@ -1272,7 +1295,12 @@ int wc_iotsafe_ecc_verify_hash(byte *sig, word32 siglen, byte *hash,
 }
 int wc_iotsafe_ecc_gen_k(byte key_id)
 {
-    return iotsafe_gen_keypair(&key_id, 1);
+    int ret = 0;
+    ecc_key* key = XMALLOC(sizeof(ecc_key), NULL, DYNAMIC_TYPE_ECC);
+    ret = iotsafe_gen_keypair(&key_id, 1, key);
+    XFREE(key, NULL, DYNAMIC_TYPE_ECC);
+
+    return ret;
 }
 
 #endif /* HAVE_ECC */
@@ -1369,6 +1397,7 @@ int wolfSSL_iotsafe_on_ex(WOLFSSL *ssl, byte *privkey_id,
     (void)ecdh_keypair_slot;
     (void)peer_cert_slot;
     (void)peer_pubkey_slot;
+    (void)id_size;
     return NOT_COMPILED_IN;
 #endif
 }
