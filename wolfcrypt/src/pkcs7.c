@@ -9294,6 +9294,9 @@ static int wc_PKCS7_DecryptPwri(PKCS7* pkcs7, byte* in, word32 inSz,
             if (GetLength(pkiMsg, idx, &saltSz, pkiMsgSz) < 0)
                 return ASN_PARSE_E;
 
+            if (((*idx) + saltSz) >= inSz)
+                return ASN_PARSE_E;
+
             salt = (byte*)XMALLOC(saltSz, pkcs7->heap, DYNAMIC_TYPE_PKCS7);
             if (salt == NULL)
                 return MEMORY_E;
