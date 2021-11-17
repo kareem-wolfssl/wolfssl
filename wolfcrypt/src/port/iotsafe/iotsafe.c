@@ -71,6 +71,7 @@ static wolfSSL_IOTSafe_CSIM_write_cb csim_write_cb = NULL;
 /* Size of "\r\n + null terminator */
 #define CSIM_CMD_ENDSTR_SIZE 4
 
+static uint8_t IOTSAFE_CHANNEL_ID = 0x01;
 /* Buffer for CSIM RX APDU */
 #define MAXBUF 2048
 static char csim_read_buf[MAXBUF];
@@ -129,6 +130,8 @@ static int expect_tok(const char *cmd, int size, const char *tok, char **repl)
     static char parser_line[MAXBUF / 2];
     char *reply = NULL;
     int ret;
+
+    WOLFSSL_ENTER("expect_tok");
     if (cmd) {
         ret = csim_write(cmd, size);
         if (ret <= 0)
@@ -172,6 +175,8 @@ static int expect_tok(const char *cmd, int size, const char *tok, char **repl)
         ret = (int)XSTRLEN(reply);
     else
         ret = 0;
+
+    WOLFSSL_LEAVE("expect_tok", ret);
     return ret;
 }
 
@@ -195,6 +200,8 @@ static int hexbuffer_conv(char *hex_str, unsigned char *output, unsigned long sz
 /* Search a TLV by tag in a buffer */
 static char *search_tlv(const char *haystack, int size, uint8_t tag)
 {
+    WOLFSSL_ENTER("search_tlv");
+
     int i = 0;
     uint8_t t;
     uint8_t l;
@@ -215,6 +222,7 @@ static char *search_tlv(const char *haystack, int size, uint8_t tag)
 
 static int iotsafe_cmd_start(char *cmd, byte cmd_class, byte ins, byte p1, byte p2)
 {
+    WOLFSSL_ENTER("iotsafe_cmd_start");
     byte lc = 0;
     char *out;
     XMEMSET(cmd, 0, IOTSAFE_CMDSIZE_MAX);
@@ -232,6 +240,8 @@ static int iotsafe_cmd_start(char *cmd, byte cmd_class, byte ins, byte p1, byte 
 static int iotsafe_cmd_add_tlv_ex(char *cmd, byte tag, uint16_t len,
         const byte *val, int taglen_size)
 {
+    WOLFSSL_ENTER("iotsafe_cmd_add_tlv_ex");
+
     word32 cur_csim_len;
     word32 off;
     byte cur_lc;
@@ -327,11 +337,13 @@ static int iotsafe_cmd_add_tlv16(char *cmd, byte tag, uint16_t len,
 
 static int iotsafe_cmd_add_tlv(char *cmd, byte tag, byte len, const byte *val)
 {
+    WOLFSSL_ENTER("iotsafe_cmd_add_tlv");
     return iotsafe_cmd_add_tlv_ex(cmd, tag, len, val, 1);
 }
 
 static void iotsafe_cmd_complete(char *cmd)
 {
+    WOLFSSL_ENTER("iotsafe_cmd_complete");
     word32 cmdlen = (word32)XSTRLEN(cmd);
     char *out;
     if (cmdlen + CSIM_CMD_ENDSTR_SIZE > IOTSAFE_CMDSIZE_MAX) {
@@ -350,6 +362,8 @@ static void iotsafe_cmd_complete(char *cmd)
  */
 static int expect_csim_response(const char *cmd, word32 size, char **reply)
 {
+    WOLFSSL_ENTER("expect_csim_response");
+
     const char csim_response_hdr[] = "+CSIM:";
     uint8_t len = 0;
     char *csim_reply;
@@ -368,7 +382,7 @@ static int expect_csim_response(const char *cmd, word32 size, char **reply)
         return -1;
     }
     payload++;
-    if (XSTRNCMP(payload, "61", 2) == 0) {
+    if (XSTRLEN(payload) >= 4) {
         if (hex_to_bytes(payload + 2, &len, 1) == 1) {
             iotsafe_cmd_start(csim_cmd,1,IOTSAFE_INS_GETRESPONSE, 0, 0);
             bytes_to_hex(&len, csim_cmd + AT_CSIM_CMD_SIZE + AT_CMD_LC_POS, 1);
@@ -397,6 +411,7 @@ static int expect_csim_response(const char *cmd, word32 size, char **reply)
     }
     payload[ret] = '\0';
     *reply = payload;
+    WOLFSSL_LEAVE("expect_csim_response", ret);
     return ret;
 }
 
@@ -406,9 +421,12 @@ static int expect_csim_response(const char *cmd, word32 size, char **reply)
 
 static int iotsafe_init(void)
 {
+    WOLFSSL_ENTER("iotsafe_init");
     char *reply;
+    /*const char atcmd_get_channel[]=
+        "AT+CSIM=10,\"0070000001\"\r\n";*/
     const char atcmd_load_applet_str[]=
-        "AT+CSIM=24,\"01A4040007A0000005590010\"\r\n";
+        "AT+CSIM=24,\"01A4040007A0000002480400\"\r\n";
     int ret;
 
     do {
@@ -416,10 +434,19 @@ static int iotsafe_init(void)
         if (ret == 0)
             ret = expect_tok(NULL, 0, NULL, NULL);
     } while (ret == 0);
-    if (ret < 0)
+    if (ret < 0) {
+        WOLFSSL_MSG("iotsafe_init expect_ok/tok failed");
         return ret;
+    }
 
     WOLFSSL_MSG("ATE0 OK!");
+    /*if (expect_csim_response(atcmd_get_channel,
+                (word32)XSTRLEN(atcmd_get_channel), &reply) < 1) {
+        WOLFSSL_MSG("FAIL: no get channel response from iot-safe init");
+    } else {
+        printf("get channel reply: %s\n", reply);
+        WOLFSSL_MSG("IoT Safe get channel OK");
+    }*/
     if (expect_csim_response(atcmd_load_applet_str,
                 (word32)XSTRLEN(atcmd_load_applet_str), &reply) < 0) {
         WOLFSSL_MSG("FAIL: no Applet code response from iot-safe init");
@@ -427,9 +454,12 @@ static int iotsafe_init(void)
     } else {
         WOLFSSL_MSG("IoT Safe Applet INIT OK");
     }
-    if (expect_tok(NULL, 0, NULL, NULL) < 0)
+    if (expect_tok(NULL, 0, NULL, NULL) < 0) {
+        WOLFSSL_MSG("expect_tok failed in iotsafe_init");
         return -1;
+    }
     wolfIoT_initialized++;
+    WOLFSSL_MSG("iotsafe_init finished successfully");
     return 0;
 }
 
@@ -440,10 +470,11 @@ static int iotsafe_readfile(uint8_t *file_id, uint16_t file_id_sz,
 {
     char *resp;
     int ret;
-    char *filesz_s;
-    int file_sz = 0;
+    //char *filesz_s;
+    int file_sz = max_size;
     uint16_t off = 0;
-    iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_GETDATA,
+    /*
+    iotsafe_cmd_start(csim_cmd, IOTSAFE_CHANNEL_ID, IOTSAFE_INS_GETDATA,
             IOTSAFE_GETDATA_FILE, 0);
     iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_FILE_ID, file_id_sz, file_id);
     iotsafe_cmd_complete(csim_cmd);
@@ -470,13 +501,14 @@ static int iotsafe_readfile(uint8_t *file_id, uint16_t file_id_sz,
     if (file_sz > max_size) {
         WOLFSSL_MSG("iotsafe_readfile: insufficient space in buffer");
         return -1;
-    }
+    }*/
 
+    // Read in from beginning to end of file, or until file_sz is reached.
     while (off < file_sz) {
         byte off_p1, off_p2;
         off_p1 = (off >> 8) & 0xff;
         off_p2 = (off & 0xff);
-        iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_READ_FILE,
+        iotsafe_cmd_start(csim_cmd, IOTSAFE_CHANNEL_ID, IOTSAFE_INS_READ_FILE,
                 off_p1, off_p2);
         iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_FILE_ID, file_id_sz, file_id);
         iotsafe_cmd_complete(csim_cmd);
@@ -488,6 +520,9 @@ static int iotsafe_readfile(uint8_t *file_id, uint16_t file_id_sz,
                 return -1;
             }
             off += ret/2;
+            if (XSTRNCMP(&resp[ret-4], "0000", 4) == 0) {
+                break;
+            }
         } else {
             WOLFSSL_MSG("IoTSafe: Error reading file.");
             return -1;
@@ -910,6 +945,7 @@ static int iotsafe_verify_hash(byte *pubkey_idx, uint16_t id_size,
     int retries = 0;
     *result = 0;
 
+    WOLFSSL_ENTER("iotsafe_verify_hash");
     iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_VERIFY_INIT, 0, 1);
     iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_PUBKEY_ID, id_size, pubkey_idx);
     iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_MODE_OF_OPERATION, 1,
@@ -931,8 +967,10 @@ static int iotsafe_verify_hash(byte *pubkey_idx, uint16_t id_size,
                     return WC_HW_E;
             }
         } while (ret == 0);
-        if (ret < 0)
+        if (ret < 0) {
+            WOLFSSL_MSG("iotsafe_verify_hash first expect_ok error");
             return WC_HW_E;
+        }
         retries = 0;
 
         /* Compose verify_update message with hash + signature */
@@ -955,10 +993,12 @@ static int iotsafe_verify_hash(byte *pubkey_idx, uint16_t id_size,
                 *result = 0;
                 ret = 0;
             } else {
+                WOLFSSL_MSG("Iot-safe bus error");
                 ret = WC_HW_E; /* IoT-safe bus error */
             }
         }
         else if (ret == 0) {
+            WOLFSSL_MSG("iotsafe_verify_hash verify OK");
             *result = 1;
             ret = 0;
         }
@@ -967,6 +1007,7 @@ static int iotsafe_verify_hash(byte *pubkey_idx, uint16_t id_size,
         iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_VERIFY_INIT,1,1);
         iotsafe_cmd_complete(csim_cmd);
         if (expect_ok(csim_cmd, (word32)XSTRLEN(csim_cmd)) < 0) {
+            WOLFSSL_MSG("iotsafe_verify_hash termination expect_ok failed");
             *result = 0;
             ret = WC_HW_E;
         }
@@ -979,6 +1020,7 @@ static int iotsafe_verify_hash(byte *pubkey_idx, uint16_t id_size,
             }
         } while (ret == 0);
         if (ret < 0) {
+            WOLFSSL_MSG("iotsafe_verify_hash last expect_ok error");
             return WC_HW_E;
         } else {
             ret = 0;
@@ -988,6 +1030,7 @@ static int iotsafe_verify_hash(byte *pubkey_idx, uint16_t id_size,
         /* TODO: RSA */
         ret = NOT_COMPILED_IN;
     }
+    WOLFSSL_LEAVE("iotsafe_verify_hash", ret);
     return ret;
 }
 
