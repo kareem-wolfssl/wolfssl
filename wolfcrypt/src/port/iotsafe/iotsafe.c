@@ -633,6 +633,7 @@ static int iotsafe_gen_keypair(byte *wr_slot, unsigned long id_size,
 {
     char *resp;
     int ret = WC_HW_E;
+    WOLFSSL_ENTER("iotsafe_gen_keypair");
     iotsafe_cmd_start(csim_cmd, IOTSAFE_CLASS, IOTSAFE_INS_GEN_KEYPAIR, 0, 0);
     iotsafe_cmd_add_tlv(csim_cmd, IOTSAFE_TAG_PRIVKEY_ID, id_size, wr_slot);
     iotsafe_cmd_complete(csim_cmd);
@@ -655,6 +656,7 @@ static int iotsafe_gen_keypair(byte *wr_slot, unsigned long id_size,
     } else {
         ret = 0;
     }
+    WOLFSSL_LEAVE("iotsafe_gen_keypair", ret);
     return ret;
 }
 
