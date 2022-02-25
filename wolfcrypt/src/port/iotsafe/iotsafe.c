@@ -897,6 +897,12 @@ static int iotsafe_sign_hash(byte *privkey_idx, uint16_t id_size,
             if (hex_to_bytes(resp, sig_hdr, 3) < 0) {
                ret = BAD_FUNC_ARG;
             } else if ((sig_hdr[0] == IOTSAFE_TAG_SIGNATURE_FIELD) &&
+                       (sig_hdr[1] == 2 * IOTSAFE_ECC_KSIZE)) {
+                XSTRNCPY(R, resp + 4, IOTSAFE_ECC_KSIZE * 2);
+                XSTRNCPY(S, resp + 4 + IOTSAFE_ECC_KSIZE * 2,
+                        IOTSAFE_ECC_KSIZE * 2);
+                ret = wc_ecc_rs_to_sig(R, S, signature, sigLen);
+            } else if ((sig_hdr[0] == IOTSAFE_TAG_SIGNATURE_FIELD) &&
                        (sig_hdr[1] == 0) &&
                        (sig_hdr[2] == 2 * IOTSAFE_ECC_KSIZE)) {
                 XSTRNCPY(R, resp + 6, IOTSAFE_ECC_KSIZE * 2);
@@ -905,6 +911,7 @@ static int iotsafe_sign_hash(byte *privkey_idx, uint16_t id_size,
                 ret = wc_ecc_rs_to_sig(R, S, signature, sigLen);
             } else {
                 ret = WC_HW_E;
+                WOLFSSL_MSG("Invalid response from EC sign update");
             }
         } else {
             WOLFSSL_MSG("Invalid response from EC sign update");
