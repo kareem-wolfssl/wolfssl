@@ -17939,6 +17939,32 @@ cleanup:
                                                     and free it with CTX free*/
     }
 
+#ifdef OPENSSL_ALL
+    int wolfSSL_CTX_set1_verify_cert_store(WOLFSSL_CTX* ctx, WOLFSSL_X509_STORE* str)
+    {
+        WOLFSSL_ENTER("wolfSSL_CTX_set1_verify_cert_store");
+
+        if (ctx == NULL || str == NULL) {
+            WOLFSSL_MSG("Bad parameter");
+            return WOLFSSL_FAILURE;
+        }
+
+        /* NO-OP when setting existing store */
+        if (str == CTX_STORE(ctx))
+            return WOLFSSL_SUCCESS;
+
+        if (wolfSSL_X509_STORE_up_ref(str) != WOLFSSL_SUCCESS) {
+            WOLFSSL_MSG("wolfSSL_X509_STORE_up_ref error");
+            return WOLFSSL_FAILURE;
+        }
+
+        /* free existing store if it exists */
+        wolfSSL_X509_STORE_free(ctx->x509_store_pt);
+        ctx->x509_store_pt = str; /* take ownership of store and free it
+                                     with CTX free */
+        return WOLFSSL_SUCCESS;
+    }
+#endif
 
     int wolfSSL_set0_verify_cert_store(WOLFSSL *ssl, WOLFSSL_X509_STORE* str)
     {
