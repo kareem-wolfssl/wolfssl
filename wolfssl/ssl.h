@@ -1826,6 +1826,8 @@ WOLFSSL_API unsigned long wolfSSL_thread_id(void);
 WOLFSSL_API void wolfSSL_set_id_callback(unsigned long (*f)(void));
 WOLFSSL_API void wolfSSL_set_locking_callback(void (*f)(int, int, const char*,
                                                       int));
+WOLFSSL_API void (*wolfSSL_get_locking_callback(void))(int, int, const char*,
+                                                       int);
 WOLFSSL_API void wolfSSL_set_dynlock_create_callback(WOLFSSL_dynlock_value* (*f)
                                                    (const char*, int));
 WOLFSSL_API void wolfSSL_set_dynlock_lock_callback(void (*f)(int,

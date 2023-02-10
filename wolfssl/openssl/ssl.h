@@ -165,6 +165,7 @@ typedef STACK_OF(ACCESS_DESCRIPTION) AUTHORITY_INFO_ACCESS;
 #define CRYPTO_WRITE            0x08
 
 #define CRYPTO_set_locking_callback     wolfSSL_set_locking_callback
+#define CRYPTO_get_locking_callback     wolfSSL_get_locking_callback
 #define CRYPTO_set_dynlock_create_callback  wolfSSL_set_dynlock_create_callback
 #define CRYPTO_set_dynlock_lock_callback wolfSSL_set_dynlock_lock_callback
 #define CRYPTO_set_dynlock_destroy_callback wolfSSL_set_dynlock_destroy_callback

@@ -18077,6 +18077,13 @@ cleanup:
         }
     }
 
+    void (*wolfSSL_get_locking_callback(void))(int, int, const char*, int)
+    {
+        WOLFSSL_ENTER("wolfSSL_get_locking_callback");
+
+        return wc_GetMutexCb();
+    }
+
 
     typedef unsigned long (idCb)(void);
     static idCb* inner_idCb = NULL;
