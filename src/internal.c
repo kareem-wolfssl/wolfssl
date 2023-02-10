@@ -24698,7 +24698,16 @@ int SetCipherList(WOLFSSL_CTX* ctx, Suites* suites, const char* list)
             continue;
         }
 
-        if (XSTRCMP(name, "ECDHE") == 0) {
+        if (XSTRCMP(name, "DHE") == 0 || XSTRCMP(name, "EDH") == 0) {
+            if (allowing) {
+                haveDH = 1;
+                callInitSuites = 1;
+                ret = 1;
+            }
+            continue;
+        }
+
+        if (XSTRCMP(name, "ECDHE") == 0 || XSTRCMP(name, "EECDH") == 0) {
             if (allowing) {
                 haveECC = 1;
                 haveECDSAsig = 1;
