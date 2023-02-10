@@ -1272,6 +1272,7 @@ typedef WOLFSSL_SRTP_PROTECTION_PROFILE      SRTP_PROTECTION_PROFILE;
 #define SSL_CTRL_SET_GROUPS                       91
 #define SSL_CTRL_GET_PEER_TMP_KEY                 109
 #define SSL_CTRL_GET_SERVER_TMP_KEY               SSL_CTRL_GET_PEER_TMP_KEY
+#define SSL_CTRL_GET_CHAIN_CERTS                  115
 #define SSL_CTRL_SET_MIN_PROTO_VERSION            123
 #define SSL_CTRL_SET_MAX_PROTO_VERSION            124
 #define SSL_CTRL_GET_MIN_PROTO_VERSION            125
