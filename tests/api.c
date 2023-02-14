@@ -39176,11 +39176,10 @@ static int test_wolfSSL_X509_STORE(void)
             }
             else {
                 AssertIntEQ(SSL_set1_verify_cert_store(ssl, store), SSL_SUCCESS);
-                X509_STORE_free(store);
                 #ifdef OPENSSL_ALL
                 AssertIntEQ(SSL_CTX_set1_verify_cert_store(ctx, store), SSL_SUCCESS);
-                X509_STORE_free(store);
                 #endif
+                X509_STORE_free(store);
             }
             SSL_free(ssl);
             SSL_CTX_free(ctx);
