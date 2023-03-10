@@ -3220,14 +3220,23 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    /* OpenSSL enables ECDHE when using ECDHE aliases without RSA */
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
     }
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
     }
@@ -3339,7 +3348,11 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = CHACHA_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
     }
@@ -3363,7 +3376,11 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256;
     }
@@ -3391,7 +3408,11 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
     }
@@ -3475,7 +3496,11 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+    #ifdef OPENSSL_EXTRA
+    if ((tls && haveRSA) || (tls && haveECDSAsig)) {
+    #else
     if (tls && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
     }
@@ -3489,7 +3514,11 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+    #ifdef OPENSSL_EXTRA
+    if ((tls && haveRSA) || (tls && haveECDSAsig)) {
+    #else
     if (tls && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
     }
@@ -3517,7 +3546,11 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+    #ifdef OPENSSL_EXTRA
+    if ((tls && haveRSA) || (tls && haveECDSAsig)) {
+    #else
     if (tls && haveRSA) {
+    #endif
         suites->suites[idx++] = ECC_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA;
     }
@@ -3660,14 +3693,22 @@ void InitSuites(Suites* suites, ProtocolVersion pv, int keySz, word16 haveRSA,
 #endif
 
 #ifdef BUILD_TLS_ECDHE_RSA_WITH_CHACHA20_OLD_POLY1305_SHA256
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = CHACHA_BYTE;
         suites->suites[idx++] = TLS_ECDHE_RSA_WITH_CHACHA20_OLD_POLY1305_SHA256;
     }
 #endif
 
 #ifdef BUILD_TLS_DHE_RSA_WITH_CHACHA20_OLD_POLY1305_SHA256
+    #ifdef OPENSSL_EXTRA
+    if ((tls1_2 && haveRSA) || (tls1_2 && haveECDSAsig)) {
+    #else
     if (tls1_2 && haveRSA) {
+    #endif
         suites->suites[idx++] = CHACHA_BYTE;
         suites->suites[idx++] = TLS_DHE_RSA_WITH_CHACHA20_OLD_POLY1305_SHA256;
     }
@@ -24688,10 +24729,8 @@ int SetCipherList(WOLFSSL_CTX* ctx, Suites* suites, const char* list)
         }
 
         if (XSTRCMP(name, "kDH") == 0) {
-            haveStaticECC = allowing;
             if (allowing) {
-                haveECC = 1;
-                haveECDSAsig = 1;
+                haveDH = 1;
                 callInitSuites = 1;
                 ret = 1;
             }
