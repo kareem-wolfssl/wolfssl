@@ -33530,6 +33530,9 @@ static int DoSessionTicket(WOLFSSL* ssl, const byte* input, word32* inOutIdx,
                 WOLFSSL_OP_NO_SSLv3) {
                 WOLFSSL_MSG("\tError, option set to not allow SSLv3");
                 ret = VERSION_ERROR;
+#ifdef WOLFSSL_EXTRA_ALERTS
+                SendAlert(ssl, alert_fatal, wolfssl_alert_protocol_version);
+#endif
                 goto out;
             }
 
@@ -37224,6 +37227,13 @@ static int DefTicketEncCb(WOLFSSL* ssl, byte key_name[WOLFSSL_TICKET_NAME_SZ],
         int ad = 0;
         int sniRet = 0;
         int ret = 0;
+
+        /* OpenSSL defaults alert to SSL_AD_UNRECOGNIZED_NAME, use this if
+           WOLFSSL_EXTRA_ALERTS is defined, indicating user is OK with
+           potential information disclosure from alerts. */
+#if defined(OPENSSL_EXTRA) && defined(WOLFSSL_EXTRA_ALERTS)
+        ad = SSL_AD_UNRECOGNIZED_NAME;
+#endif
         /* Stunnel supports a custom sni callback to switch an SSL's ctx
         * when SNI is received. Call it now if exists */
         if(ssl && ssl->ctx && ssl->ctx->sniRecvCb) {
