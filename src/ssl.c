@@ -1326,6 +1326,12 @@ WOLFSSL_CTX* wolfSSL_CTX_new_ex(WOLFSSL_METHOD* method, void* heap)
 #ifdef HAVE_ANON
                 wolfSSL_CTX_allow_anon_cipher(ctx) != WOLFSSL_SUCCESS ||
 #endif
+#ifdef WOLFSSL_TLS13
+    /* OpenSSL enables these TLS 1.3 ciphers by default. */
+                !wolfSSL_CTX_set_cipher_list(ctx, "TLS_AES_256_GCM_SHA384:"
+                                                  "TLS_CHACHA20_POLY1305_SHA256:"
+                                                  "TLS_AES_128_GCM_SHA256") ||
+#endif
                 wolfSSL_CTX_set_group_messages(ctx) != WOLFSSL_SUCCESS) {
             WOLFSSL_MSG("Setting OpenSSL CTX defaults failed");
             wolfSSL_CTX_free(ctx);
@@ -17439,16 +17445,49 @@ cleanup:
     /*
      * This is an OpenSSL compatibility layer function, but it doesn't mirror
      * the exact functionality of its OpenSSL counterpart. We don't support the
-     * notion of an "OpenSSL directory," nor do we support the environment
-     * variables SSL_CERT_DIR or SSL_CERT_FILE. This function is simply a
-     * wrapper around our native wolfSSL_CTX_load_system_CA_certs function. This
-     * function does conform to OpenSSL's return value conventions, though.
+     * notion of an "OpenSSL directory". This function will attempt to load the
+     * environment variables SSL_CERT_DIR and SSL_CERT_FILE, if either are found,
+     * they will be loaded. Otherwise, it will act as a wrapper around our
+     * native wolfSSL_CTX_load_system_CA_certs function. This function does
+     * conform to OpenSSL's return value conventions.
      */
     int wolfSSL_CTX_set_default_verify_paths(WOLFSSL_CTX* ctx)
     {
         int ret;
+#ifdef XGETENV
+        char* certDir;
+        char* certFile;
+        word32 flags;
+#endif
 
         WOLFSSL_ENTER("wolfSSL_CTX_set_default_verify_paths");
+
+#ifdef XGETENV
+        certDir = XGETENV("SSL_CERT_DIR");
+        certFile = XGETENV("SSL_CERT_FILE");
+        flags = WOLFSSL_LOAD_FLAG_PEM_CA_ONLY;
+
+        if (certDir || certFile) {
+            if (certDir) {
+               /*
+                * We want to keep trying to load more CAs even if one cert in
+                * the directory is bad and can't be used (e.g. if one is expired),
+                * so we use WOLFSSL_LOAD_FLAG_IGNORE_ERR.
+                */
+                flags |= WOLFSSL_LOAD_FLAG_IGNORE_ERR;
+            }
+
+            ret = wolfSSL_CTX_load_verify_locations_ex(ctx, certFile, certDir,
+                    flags);
+            if (ret != WOLFSSL_SUCCESS) {
+                WOLFSSL_MSG_EX("Failed to load CA certs from SSL_CERT_FILE: %s"
+                                " SSL_CERT_DIR: %s. Error: %d", certFile,
+                                certDir, ret);
+                return WOLFSSL_FAILURE;
+            }
+            return ret;
+        }
+#endif
 
         ret = wolfSSL_CTX_load_system_CA_certs(ctx);
         if (ret == WOLFSSL_BAD_PATH) {
