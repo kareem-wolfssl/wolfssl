@@ -33393,6 +33393,7 @@ int wolfSSL_CTX_set_tlsext_status_cb(WOLFSSL_CTX* ctx, tlsextStatusCb cb)
     return WOLFSSL_SUCCESS;
 }
 
+/*
 int wolfSSL_CTX_get0_chain_certs(WOLFSSL_CTX *ctx,
         WOLF_STACK_OF(WOLFSSL_X509) **sk)
 {
@@ -33401,9 +33402,11 @@ int wolfSSL_CTX_get0_chain_certs(WOLFSSL_CTX *ctx,
         WOLFSSL_MSG("Bad parameter");
         return WOLFSSL_FAILURE;
     }
-    *sk = ctx->x509Chain;
-    return WOLFSSL_SUCCESS;
-}
+    * This function should return ctx->x509Chain if it is populated, otherwise
+       it should be populated from ctx->certChain.  This matches the behavior of
+       wolfSSL_CTX_get_extra_chain_certs. *
+    return wolfSSL_CTX_get_extra_chain_certs(ctx, sk);
+}*/
 
 #ifdef KEEP_OUR_CERT
 int wolfSSL_get0_chain_certs(WOLFSSL *ssl,

@@ -1551,7 +1551,7 @@ typedef WOLFSSL_SRTP_PROTECTION_PROFILE      SRTP_PROTECTION_PROFILE;
 #define SSL_CTX_set_tlsext_ticket_key_cb wolfSSL_CTX_set_tlsext_ticket_key_cb
 #define SSL_CTX_set_tlsext_status_cb    wolfSSL_CTX_set_tlsext_status_cb
 #define SSL_CTX_get_extra_chain_certs   wolfSSL_CTX_get_extra_chain_certs
-#define SSL_CTX_get0_chain_certs        wolfSSL_CTX_get0_chain_certs
+#define SSL_CTX_get0_chain_certs        wolfSSL_CTX_get_extra_chain_certs
 #define SSL_get0_chain_certs            wolfSSL_get0_chain_certs
 #define sk_OPENSSL_STRING_num           wolfSSL_sk_WOLFSSL_STRING_num
 #define sk_OPENSSL_STRING_value         wolfSSL_sk_WOLFSSL_STRING_value
