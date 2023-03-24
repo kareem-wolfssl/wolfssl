@@ -1326,12 +1326,6 @@ WOLFSSL_CTX* wolfSSL_CTX_new_ex(WOLFSSL_METHOD* method, void* heap)
 #ifdef HAVE_ANON
                 wolfSSL_CTX_allow_anon_cipher(ctx) != WOLFSSL_SUCCESS ||
 #endif
-#ifdef WOLFSSL_TLS13
-    /* OpenSSL enables these TLS 1.3 ciphers by default. */
-                !wolfSSL_CTX_set_cipher_list(ctx, "TLS_AES_256_GCM_SHA384:"
-                                                  "TLS_CHACHA20_POLY1305_SHA256:"
-                                                  "TLS_AES_128_GCM_SHA256") ||
-#endif
                 wolfSSL_CTX_set_group_messages(ctx) != WOLFSSL_SUCCESS) {
             WOLFSSL_MSG("Setting OpenSSL CTX defaults failed");
             wolfSSL_CTX_free(ctx);
