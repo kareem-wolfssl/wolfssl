@@ -44326,9 +44326,16 @@ static int test_wolfSSL_BIO_gets(void)
     char emp[] = "";
     char bio_buffer[20];
     int bufferSz = 20;
+#ifdef OPENSSL_ALL
+    BUF_MEM* emp_bm;
+    BUF_MEM* msg_bm;
+#endif
 
     /* try with bad args */
     AssertNull(bio = BIO_new_mem_buf(NULL, sizeof(msg)));
+#ifdef OPENSSL_ALL
+    AssertIntEQ(BIO_set_mem_buf(bio, NULL, BIO_NOCLOSE), BAD_FUNC_ARG);
+#endif
 
     /* try with real msg */
     AssertNotNull(bio = BIO_new_mem_buf((void*)msg, -1));
@@ -44349,6 +44356,41 @@ static int test_wolfSSL_BIO_gets(void)
     AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 19);
     AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 8);
     AssertIntEQ(BIO_gets(bio, bio_buffer, -1), 0);
+
+#ifdef OPENSSL_ALL
+    /* test setting the mem_buf manually */
+    BIO_free(bio);
+    AssertNotNull(bio = BIO_new_mem_buf((void*)msg, -1));
+    AssertNotNull(emp_bm = BUF_MEM_new());
+    AssertNotNull(msg_bm = BUF_MEM_new());
+    AssertIntEQ(BUF_MEM_grow(msg_bm, sizeof(msg)), sizeof(msg));
+    XFREE(msg_bm->data, NULL, DYNAMIC_TYPE_OPENSSL);
+    /* emp size is 1 for terminator */
+    AssertIntEQ(BUF_MEM_grow(emp_bm, sizeof(emp)), sizeof(emp));
+    XFREE(emp_bm->data, NULL, DYNAMIC_TYPE_OPENSSL);
+    emp_bm->data = emp;
+    msg_bm->data = msg;
+    AssertIntEQ(BIO_set_mem_buf(bio, emp_bm, BIO_NOCLOSE), WOLFSSL_SUCCESS);
+
+    /* check reading an empty string */
+    AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 1); /* just terminator */
+    AssertStrEQ(emp, bio_buffer);
+    AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 0); /* Nothing to read */
+
+    /* BIO_gets reads a line of data */
+    AssertIntEQ(BIO_set_mem_buf(bio, msg_bm, BIO_NOCLOSE), WOLFSSL_SUCCESS);
+    AssertIntEQ(BIO_gets(bio, bio_buffer, -3), 0);
+    AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 1);
+    AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 14);
+    AssertStrEQ(bio_buffer, "hello wolfSSL\n");
+    AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 19);
+    AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 8);
+    AssertIntEQ(BIO_gets(bio, bio_buffer, -1), 0);
+
+    /* Note that emp_bm is freed on above BIO_set_mem_buf call */
+    msg_bm->data = NULL;
+    BUF_MEM_free(msg_bm);
+#endif
 
     /* check not null terminated string */
     BIO_free(bio);
@@ -44597,16 +44639,16 @@ static int test_wolfSSL_BIO_should_retry(void)
     tcp_connect(&sockfd, wolfSSLIP, server_args.signal->port, 0, 0, NULL);
 
     /* force retry */
-    ssl = wolfSSL_new(ctx);
+    AssertNotNull(bio = wolfSSL_BIO_new_ssl(ctx, 1));
+    AssertIntEQ(BIO_get_ssl(bio, &ssl), 1);
     AssertNotNull(ssl);
     AssertIntEQ(wolfSSL_set_fd(ssl, sockfd), WOLFSSL_SUCCESS);
     wolfSSL_SSLSetIORecv(ssl, forceWantRead);
 
-    AssertNotNull(bio = BIO_new(BIO_f_ssl()));
-    BIO_set_ssl(bio, ssl, BIO_CLOSE);
-
     AssertIntLE(BIO_write(bio, msg, msgSz), 0);
     AssertIntNE(BIO_should_retry(bio), 0);
+    AssertIntEQ(BIO_should_read(bio), 0);
+    AssertIntEQ(BIO_should_write(bio), 0);
 
 
     /* now perform successful connection */
@@ -44616,9 +44658,21 @@ static int test_wolfSSL_BIO_should_retry(void)
     ret = wolfSSL_get_error(ssl, -1);
     if (ret == WOLFSSL_ERROR_WANT_READ || ret == WOLFSSL_ERROR_WANT_WRITE) {
         AssertIntNE(BIO_should_retry(bio), 0);
+
+        if (ret == WOLFSSL_ERROR_WANT_READ)
+            AssertIntEQ(BIO_should_read(bio), 1);
+        else
+            AssertIntEQ(BIO_should_read(bio), 0);
+
+        if (ret == WOLFSSL_ERROR_WANT_WRITE)
+            AssertIntEQ(BIO_should_write(bio), 1);
+        else
+            AssertIntEQ(BIO_should_write(bio), 0);
     }
     else {
         AssertIntEQ(BIO_should_retry(bio), 0);
+        AssertIntEQ(BIO_should_read(bio), 0);
+        AssertIntEQ(BIO_should_write(bio), 0);
     }
     AssertIntEQ(XMEMCMP(reply, "I hear you fa shizzle!",
                 XSTRLEN("I hear you fa shizzle!")), 0);
