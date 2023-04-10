@@ -44370,7 +44370,7 @@ static int test_wolfSSL_BIO_gets(void)
     XFREE(emp_bm->data, NULL, DYNAMIC_TYPE_OPENSSL);
     emp_bm->data = emp;
     msg_bm->data = msg;
-    AssertIntEQ(BIO_set_mem_buf(bio, emp_bm, BIO_NOCLOSE), WOLFSSL_SUCCESS);
+    AssertIntEQ(BIO_set_mem_buf(bio, emp_bm, BIO_CLOSE), WOLFSSL_SUCCESS);
 
     /* check reading an empty string */
     AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 1); /* just terminator */
@@ -44387,7 +44387,8 @@ static int test_wolfSSL_BIO_gets(void)
     AssertIntEQ(BIO_gets(bio, bio_buffer, bufferSz), 8);
     AssertIntEQ(BIO_gets(bio, bio_buffer, -1), 0);
 
-    /* Note that emp_bm is freed on above BIO_set_mem_buf call */
+    emp_bm->data = NULL;
+    BUF_MEM_free(emp_bm);
     msg_bm->data = NULL;
     BUF_MEM_free(msg_bm);
 #endif

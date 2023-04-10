@@ -1163,11 +1163,9 @@ long wolfSSL_BIO_get_mem_ptr(WOLFSSL_BIO *bio, WOLFSSL_BUF_MEM **ptr)
             (closeFlag != BIO_NOCLOSE && closeFlag != BIO_CLOSE))
             return BAD_FUNC_ARG;
 
-        if (bio->mem_buf) {
-            if (bio->flags & BIO_FLAGS_MEM_RDONLY)
-                bio->mem_buf->data = NULL;
-            wolfSSL_BUF_MEM_free(bio->mem_buf);
-        }
+        if (bio->mem_buf)
+            if (closeFlag == BIO_CLOSE)
+                wolfSSL_BUF_MEM_free(bio->mem_buf);
 
         bio->mem_buf = bufMem;
         bio->shutdown = closeFlag;
