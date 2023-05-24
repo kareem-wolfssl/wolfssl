@@ -53,7 +53,7 @@ jobs:
           repository: varnish/hitch
           ref: ${{ matrix.ref }}
           path: hitch
-          patch-file: $GITHUB_WORKSPACE/osp/hitch/hitch-${{ matrix.ref }}.patch
+          patch-file: $GITHUB_WORKSPACE/osp/hitch/hitch_${{ matrix.ref }}.patch
           run: |
             autoreconf -i
           configure: --with-wolfssl --enable-silent-rules --enable-documentation --enable-warnings --with-lex --with-yacc
