@@ -2160,6 +2160,8 @@ WOLFSSL_API void *wolfSSL_CTX_get_default_passwd_cb_userdata(WOLFSSL_CTX *ctx);
 
 WOLFSSL_API void wolfSSL_CTX_set_info_callback(WOLFSSL_CTX* ctx,
                           void (*f)(const WOLFSSL* ssl, int type, int val));
+WOLFSSL_API void wolfSSL_set_info_callback(WOLFSSL* ssl,
+                          void (*f)(const WOLFSSL* ssl, int type, int val));
 
 WOLFSSL_API unsigned long wolfSSL_ERR_peek_error(void);
 WOLFSSL_API int           wolfSSL_GET_REASON(int);
@@ -2282,6 +2284,7 @@ enum {
     WOLFSSL_OP_NO_COMPRESSION                         = 0x10000000,
     WOLFSSL_OP_NO_TLSv1_3                             = 0x20000000,
     WOLFSSL_OP_NO_SSLv2                               = 0x40000000,
+    WOLFSSL_OP_NO_RENEGOTIATION                       = 0x80000000,
     WOLFSSL_OP_ALL   =
                    (WOLFSSL_OP_MICROSOFT_SESS_ID_BUG
                   | WOLFSSL_OP_NETSCAPE_CHALLENGE_BUG
@@ -4923,6 +4926,7 @@ WOLFSSL_API int wolfSSL_SSL_in_init(const WOLFSSL* ssl);
 #else
 WOLFSSL_API int wolfSSL_SSL_in_init(WOLFSSL* ssl);
 #endif
+WOLFSSL_API int wolfSSL_SSL_in_before(const WOLFSSL* ssl);
 WOLFSSL_API int wolfSSL_SSL_in_connect_init(WOLFSSL* ssl);
 
 #ifndef NO_SESSION_CACHE

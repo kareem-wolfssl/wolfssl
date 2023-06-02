@@ -2695,6 +2695,9 @@ extern void uITRON4_free(void *p) ;
 #ifdef OPENSSL_EXTRA
     #undef  OPENSSL_EXTRA_X509_SMALL
     #define OPENSSL_EXTRA_X509_SMALL
+
+    #undef WOLFSSL_SESSION_ID_CTX
+    #define WOLFSSL_SESSION_ID_CTX
 #endif /* OPENSSL_EXTRA */
 
 /* support for converting DER to PEM */
