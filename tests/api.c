@@ -38908,7 +38908,7 @@ static int test_wolfSSL_ERR_put_error(void)
 static int test_wolfSSL_ERR_get_error_order(void)
 {
     EXPECT_DECLS;
-#if defined(OPENSSL_EXTRA) && !defined(WOLFCRYPT_ONLY)
+#ifdef WOLFSSL_HAVE_ERROR_QUEUE
     /* Empty the queue. */
     wolfSSL_ERR_clear_error();
 
@@ -38919,7 +38919,7 @@ static int test_wolfSSL_ERR_get_error_order(void)
     ExpectIntEQ(wolfSSL_ERR_get_error(), -ASN_NO_SIGNER_E);
     ExpectIntEQ(wolfSSL_ERR_peek_error(), -ASN_SELF_SIGNED_E);
     ExpectIntEQ(wolfSSL_ERR_get_error(), -ASN_SELF_SIGNED_E);
-#endif /* OPENSSL_EXTRA && !WOLFCRYPT_ONLY */
+#endif /* WOLFSSL_HAVE_ERROR_QUEUE */
     return EXPECT_RESULT();
 }
 
