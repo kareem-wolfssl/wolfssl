@@ -56,7 +56,6 @@ jobs:
       - name: Checkout hitch
         uses: actions/checkout@v3
         with:
-          # TODO: change to wolfssl repo once merged
           repository: varnish/hitch
           ref: 1.7.3
           path: hitch
@@ -86,7 +85,14 @@ jobs:
 
       - name: Run hitch tests, skipping 13, 15 and 39
         run: |
-          cd src/tests
+          pwd
+          ls
+          cd src
+          pwd
+          ls
+          cd tests
+          pwd
+          ls
           for test in ./test*.sh; do
             if ! [[ "$test" = ./test13* ]] && ! [[ "$test" = ./test15* ]] && ! [[ "$test" = ./test39* ]]; then
               $test
