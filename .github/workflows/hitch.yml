@@ -66,7 +66,7 @@ jobs:
             cd $GITHUB_WORKSPACE/hitch/
             patch -p1 < $GITHUB_WORKSPACE/osp/hitch/hitch_1.7.3.patch
             autoreconf -ivf
-            ./configure --with-wolfssl=$GITHUB_WORKSPACE/build-dir/ --enable-silent-rules --enable-documentation --enable-warnings --with-lex --with-yacc SSL_CFLAGS="-I$GITHUB_WORKSPACE/build-dir/include/ -I$GITHUB_WORKSPACE/build-dir/include/wolfssl" SSL_LIBS="-L$GITHUB_WORKSPACE/build-dir/lib -lwolfssl" --prefix=$GITHUB_WORKSPACE/build-dir
+            SSL_CFLAGS="-I$GITHUB_WORKSPACE/build-dir/include/ -I$GITHUB_WORKSPACE/build-dir/include/wolfssl" SSL_LIBS="-L$GITHUB_WORKSPACE/build-dir/lib -lwolfssl" ./configure --with-wolfssl=$GITHUB_WORKSPACE/build-dir/ --enable-silent-rules --enable-documentation --enable-warnings --with-lex --with-yacc --prefix=$GITHUB_WORKSPACE/build-dir
             make -j$(nproc)
 
       #- name: Build hitch
@@ -86,6 +86,7 @@ jobs:
 
       - name: Run hitch tests, skipping 13, 15 and 39
         run: |
+          cd src/tests
           for test in ./test*.sh; do
             if ! [[ "$test" = ./test13* ]] && ! [[ "$test" = ./test15* ]] && ! [[ "$test" = ./test39* ]]; then
               $test
