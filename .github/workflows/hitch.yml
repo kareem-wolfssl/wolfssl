@@ -81,11 +81,14 @@ jobs:
 
       - name: Confirm hitch built with wolfSSL
         working-directory: ./hitch
-        run: ldd src/hitch | grep wolfssl
+        run: |
+          export LD_LIBRARY_PATH=$GITHUB_WORKSPACE/build-dir/lib:$LD_LIBRARY_PATH
+          ldd src/hitch | grep wolfssl
 
       - name: Run hitch tests, skipping 13, 15 and 39
         working-directory: ./hitch/src/tests
         run: |
+          export TESTDIR=`pwd`/; export PATH=$PATH:`pwd`/../:`pwd`/../util/:`pwd`; export LD_LIBRARY_PATH=$GITHUB_WORKSPACE/build-dir/lib:$LD_LIBRARY_PATH
           for test in ./test*.sh; do
             if ! [[ "$test" = ./test13* ]] && ! [[ "$test" = ./test15* ]] && ! [[ "$test" = ./test39* ]]; then
               $test
