@@ -52,7 +52,7 @@ jobs:
         run: |
             export DEBIAN_FRONTEND=noninteractive
             sudo apt-get update
-            sudo apt-get install -y libev-dev automake pkg-config make
+            sudo apt-get install -y libevent-dev automake pkg-config make
 
       - name: Checkout memcached
         uses: actions/checkout@v3
