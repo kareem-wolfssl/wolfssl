@@ -7307,10 +7307,12 @@ int InitSSL(WOLFSSL* ssl, WOLFSSL_CTX* ctx, int writeDup)
     ssl->alert_history.last_tx.code  = -1;
     ssl->alert_history.last_tx.level = -1;
 
-#ifdef OPENSSL_EXTRA
+#ifdef WOLFSSL_SESSION_ID_CTX
     /* copy over application session context ID */
     ssl->sessionCtxSz = ctx->sessionCtxSz;
     XMEMCPY(ssl->sessionCtx, ctx->sessionCtx, ctx->sessionCtxSz);
+#endif
+#ifdef OPENSSL_EXTRA
     ssl->cbioFlag = ctx->cbioFlag;
 
     ssl->protoMsgCb  = ctx->protoMsgCb;
