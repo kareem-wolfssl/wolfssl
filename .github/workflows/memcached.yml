@@ -66,7 +66,7 @@ jobs:
             cd $GITHUB_WORKSPACE/memcached/
             patch -p1 < $GITHUB_WORKSPACE/osp/memcached/memcached_1.6.19.patch
             ./autogen.sh
-            ./configure --enable-wolfssl
+            ./configure --enable-wolfssl --with-wolfssl=$GITHUB_WORKSPACE/build-dir
             make -j$(nproc)
 
       - name: Confirm memcached built with wolfSSL
