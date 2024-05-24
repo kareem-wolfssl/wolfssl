@@ -1659,6 +1659,10 @@ static int _InitRng(WC_RNG* rng, byte* nonce, word32 nonceSz,
     }
 #endif
 
+#ifndef USE_WINDOWS_API
+    rng->seed.fd = 0;
+#endif
+
 #ifdef CUSTOM_RAND_GENERATE_BLOCK
     ret = 0; /* success */
 #else
