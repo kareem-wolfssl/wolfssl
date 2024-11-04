@@ -2959,9 +2959,16 @@ static int LoadUserCaCertsWindows(WOLFSSL_CTX* ctx, const char* userStore,
     int ret = WOLFSSL_SUCCESS;
     HANDLE handle = NULL;
     PCCERT_CONTEXT certCtx = NULL;
-    LPCSTR storeProvider = (LPCSTR)userStore;
+    LPCSTR storeProvider = NULL;
     DWORD dwFlags;
-    const void* pvPara = userPvPara;
+    LPCWSTR pvPara = NULL;
+    int pvParaSz = 0;
+
+    storeProvider = WinStrToStoreProvider(userStore);
+    if (!storeProvider) {
+        WOLFSSL_MSG("Invalid / unsupported storeProvider passed to LoadUserCaCertsWindows.");
+        return WOLFSSL_FAILURE;
+    }
 
     dwFlags = WinStrToDwFlags(userDwFlags);
     if (!dwFlags) {
@@ -2969,13 +2976,27 @@ static int LoadUserCaCertsWindows(WOLFSSL_CTX* ctx, const char* userStore,
         return WOLFSSL_FAILURE;
     }
 
-    handle = CertOpenStore(userStores, X509_ASN_ENCODING, NULL, dwFlags,
-                           userPvPara);
+    pvParaSz = MultiByteToWideChar(CP_OEMCP, 0, userPvPara, -1, NULL, 0);
+    if (pvParaSz <= 0) {
+        return BAD_FUNC_ARG;
+    }
+    pvPara = (LPCWSTR*)XMALLOC(pvParaSz, NULL, DYNAMIC_TYPE_STRING);
+    if (!pvPara) {
+        return MEMORY_E;
+    }
+    pvParaSz = MultiByteToWideChar(CP_OEMCP, 0, userPvPara, -1, pvPara, pvParaSz);
+    if (pvParaSz <= 0) {
+        WOLFSSL_MSG_EX("Failed to convert pvPara string.  Error: 0x%x.", GetLastError());
+        return BAD_FUNC_ARG;
+    }
+
+    handle = CertOpenStore(storeProvider, X509_ASN_ENCODING, NULL, dwFlags,
+        pvPara);
     if (handle != NULL) {
         while ((certCtx = CertEnumCertificatesInStore(handle, certCtx))
                 != NULL) {
             if (certCtx->dwCertEncodingType == X509_ASN_ENCODING) {
-                if (ret = ProcessBuffer(ctx, certCtx->pbCertEncoded,
+                if (ProcessBuffer(ctx, certCtx->pbCertEncoded,
                         certCtx->cbCertEncoded, WOLFSSL_FILETYPE_ASN1,
                         CA_TYPE, NULL, NULL, 0,
                         GET_VERIFY_SETTING_CTX(ctx)) != WOLFSSL_SUCCESS) {
@@ -2997,7 +3018,48 @@ static int LoadUserCaCertsWindows(WOLFSSL_CTX* ctx, const char* userStore,
     return ret;
 }
 
-DWORD WinStrToDwFlags(const char* dwFlags) {
+static DWORD WinStrToStoreProvider(const char* storeProvider) {
+    if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_FILE")) {
+        return CERT_STORE_PROV_FILE;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_FILENAME")) {
+        return CERT_STORE_PROV_FILENAME;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_LDAP")) {
+        return CERT_STORE_PROV_LDAP;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_MEMORY")) {
+        return CERT_STORE_PROV_MEMORY;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_MSG")) {
+        return CERT_STORE_PROV_MSG;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_PHYSICAL")) {
+        return CERT_STORE_PROV_PHYSICAL;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_PKCS7")) {
+        return CERT_STORE_PROV_PKCS7;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_PKCS12")) {
+        return CERT_STORE_PROV_PKCS12;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_REG")) {
+        return CERT_STORE_PROV_REG;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_SERIALIZED")) {
+        return CERT_STORE_PROV_SERIALIZED;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_SYSTEM")) {
+        return CERT_STORE_PROV_SYSTEM;
+    }
+    else if (!XSTRCMP(storeProvider, "CERT_STORE_PROV_SYSTEM_REGISTRY")) {
+        return CERT_STORE_PROV_SYSTEM_REGISTRY;
+    }
+
+    return NULL;
+}
+
+static DWORD WinStrToDwFlags(const char* dwFlags) {
     if (!XSTRCMP(dwFlags, "CERT_SYSTEM_STORE_CURRENT_SERVICE")) {
         return CERT_SYSTEM_STORE_CURRENT_SERVICE;
     }
