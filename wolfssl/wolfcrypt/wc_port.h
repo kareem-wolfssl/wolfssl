@@ -1377,7 +1377,7 @@ WOLFSSL_ABI WOLFSSL_API int wolfCrypt_Cleanup(void);
 
 #if defined(__STRICT_ANSI__)
     #define WOLFSSL_FLEXIBLE_ARRAY_SIZE 1
-#elif defined(__GNUC__) && !defined(__clang__)
+#elif defined(__GNUC__)
     #define WOLFSSL_FLEXIBLE_ARRAY_SIZE
     /*!< \brief Value appropriate as a size for an array that will be allocated to a variable size.  Built-in value usually works. */
 #else
