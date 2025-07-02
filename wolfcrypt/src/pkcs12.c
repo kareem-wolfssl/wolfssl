@@ -1753,6 +1753,8 @@ exit_pk12par:
         XFREE(buf, pkcs12->heap, DYNAMIC_TYPE_PKCS);
         buf = NULL;
 
+        (void)buf;
+
         wc_FreeCertList(certList, pkcs12->heap);
     }
 

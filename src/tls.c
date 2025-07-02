@@ -9350,6 +9350,8 @@ static int TLSX_KeyShare_ProcessEcc_ex(WOLFSSL* ssl,
     int curveId = ECC_CURVE_INVALID;
     ecc_key* eccKey = (ecc_key*)keyShareEntry->key;
 
+    (void)curveId;
+
     /* find supported curve */
     switch (keyShareEntry->group) {
     #if (!defined(NO_ECC256)  || defined(HAVE_ALL_CURVES)) && ECC_MIN_KEY_SZ <= 256
