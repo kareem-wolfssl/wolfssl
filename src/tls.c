@@ -7838,11 +7838,37 @@ static int TLSX_CA_Names_Parse(WOLFSSL *ssl, const byte* input,
 static word16 TLSX_SignatureAlgorithms_GetSize(void* data)
 {
     SignatureAlgorithms* sa = (SignatureAlgorithms*)data;
+    const byte* list;
+    word16      listSz;
 
-    if (sa->hashSigAlgoSz == 0)
-        return OPAQUE16_LEN + WOLFSSL_SUITES(sa->ssl)->hashSigAlgoSz;
-    else
-        return OPAQUE16_LEN + sa->hashSigAlgoSz;
+    if (sa->hashSigAlgoSz == 0) {
+        list   = WOLFSSL_SUITES(sa->ssl)->hashSigAlgo;
+        listSz = WOLFSSL_SUITES(sa->ssl)->hashSigAlgoSz;
+    }
+    else {
+        list   = sa->hashSigAlgo;
+        listSz = sa->hashSigAlgoSz;
+    }
+
+#if defined(WOLFSSL_TLS13) && !defined(NO_RSA)
+    /* PKCS#1 v1.5 RSA (rsa_sa_algo) is not a valid TLS 1.3 signature
+     * algorithm (RFC 8446 section 4.2.3). Filter it out when sending a
+     * TLS 1.3 ClientHello on a connection where downgrade to TLS 1.2 has
+     * been disabled, so the extension only advertises algorithms that are
+     * actually usable in the negotiated version. */
+    if (IsAtLeastTLSv1_3(sa->ssl->version) && !sa->ssl->options.downgrade) {
+        word16 sz = 0, i;
+        for (i = 0; i + 1 < listSz; i += 2) {
+            if (list[i + 1] != rsa_sa_algo)
+                sz += 2;
+        }
+        return OPAQUE16_LEN + sz;
+    }
+#else
+    (void)list;
+#endif
+
+    return OPAQUE16_LEN + listSz;
 }
 
 /* Creates a bit string of supported hash algorithms with RSA PSS.
@@ -7888,19 +7914,40 @@ static word16 TLSX_SignatureAlgorithms_Write(void* data, byte* output)
 {
     SignatureAlgorithms* sa = (SignatureAlgorithms*)data;
     const Suites* suites = WOLFSSL_SUITES(sa->ssl);
+    const byte* list;
+    word16 listSz;
     word16 hashSigAlgoSz;
 
     if (sa->hashSigAlgoSz == 0) {
-        c16toa(suites->hashSigAlgoSz, output);
-        XMEMCPY(output + OPAQUE16_LEN, suites->hashSigAlgo,
-                suites->hashSigAlgoSz);
-        hashSigAlgoSz = suites->hashSigAlgoSz;
+        list   = suites->hashSigAlgo;
+        listSz = suites->hashSigAlgoSz;
     }
     else {
-        c16toa(sa->hashSigAlgoSz, output);
-        XMEMCPY(output + OPAQUE16_LEN, sa->hashSigAlgo,
-                sa->hashSigAlgoSz);
-        hashSigAlgoSz = sa->hashSigAlgoSz;
+        list   = sa->hashSigAlgo;
+        listSz = sa->hashSigAlgoSz;
+    }
+
+#if defined(WOLFSSL_TLS13) && !defined(NO_RSA)
+    /* Filter PKCS#1 v1.5 RSA sig algs from a TLS 1.3 ClientHello when
+     * downgrade to TLS 1.2 is not allowed (matches GetSize filtering). */
+    if (IsAtLeastTLSv1_3(sa->ssl->version) && !sa->ssl->options.downgrade) {
+        word16 sz = 0, i;
+        for (i = 0; i + 1 < listSz; i += 2) {
+            if (list[i + 1] != rsa_sa_algo) {
+                output[OPAQUE16_LEN + sz]     = list[i];
+                output[OPAQUE16_LEN + sz + 1] = list[i + 1];
+                sz += 2;
+            }
+        }
+        c16toa(sz, output);
+        hashSigAlgoSz = sz;
+    }
+    else
+#endif
+    {
+        c16toa(listSz, output);
+        XMEMCPY(output + OPAQUE16_LEN, list, listSz);
+        hashSigAlgoSz = listSz;
     }
 
 #ifndef NO_RSA
