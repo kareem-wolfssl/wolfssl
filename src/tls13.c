@@ -5701,6 +5701,34 @@ int DoTls13ServerHello(WOLFSSL* ssl, const byte* input, word32* inOutIdx,
             ssl->version.minor = args->pv.minor;
             ssl->options.tls1_3 = 0;
 
+#if !defined(WOLFSSL_NO_TLS12) && !defined(NO_RSA)
+            /* After downgrading from TLS 1.3 to TLS 1.2, ensure PKCS#1
+             * v1.5 RSA signature algorithms are present in the hashSigAlgo
+             * list so that TLS 1.2 algorithm selection (PickHashSigAlgo,
+             * CertificateVerify) works correctly. They may be absent when
+             * the connection was initialised in TLS 1.3-only mode. */
+            {
+                Suites* ds = ssl->suites != NULL ? ssl->suites :
+                             (ssl->ctx != NULL ? ssl->ctx->suites : NULL);
+                if (ds != NULL) {
+                    word16 i;
+                    int hasRsaSa = 0;
+                    for (i = 0; i + 1 < ds->hashSigAlgoSz; i += 2) {
+                        if (ds->hashSigAlgo[i + 1] == rsa_sa_algo) {
+                            hasRsaSa = 1;
+                            break;
+                        }
+                    }
+                    if (!hasRsaSa) {
+                        /* Rebuild the list without TLS 1.3 restrictions so
+                         * PKCS#1 v1.5 RSA entries are included. */
+                        InitSuitesHashSigAlgo(ds->hashSigAlgo, SIG_ALL, 1, 0,
+                            ssl->buffers.keySz, &ds->hashSigAlgoSz);
+                    }
+                }
+            }
+#endif /* !WOLFSSL_NO_TLS12 && !NO_RSA */
+
 #ifdef WOLFSSL_DTLS13
             if (ssl->options.dtls) {
                 ret = Dtls13ClientDoDowngrade(ssl);

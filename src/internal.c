@@ -3611,6 +3611,15 @@ void InitSuitesHashSigAlgo(byte* hashSigAlgo, int haveSig, int tls1_2,
         #endif
         }
     #endif
+    /* PKCS#1 v1.5 RSA is not valid in TLS 1.3 (RFC 8446). In builds that
+     * support only TLS 1.3 (WOLFSSL_NO_TLS12), never add rsa_sa_algo.
+     * In mixed TLS 1.3 + TLS 1.2 builds, keep rsa_sa_algo in the list so
+     * that a ClientHello sent as TLS 1.3 can still negotiate TLS 1.2 after
+     * a server-initiated version downgrade. */
+#if defined(WOLFSSL_NO_TLS12)
+    if (!tls1_3)
+#endif
+    {
     #ifdef WOLFSSL_SHA512
         AddSuiteHashSigAlgo(hashSigAlgo, sha512_mac, rsa_sa_algo, keySz, &idx);
     #endif
@@ -3627,6 +3636,7 @@ void InitSuitesHashSigAlgo(byte* hashSigAlgo, int haveSig, int tls1_2,
                                             defined(WOLFSSL_ALLOW_TLS_SHA1))
         AddSuiteHashSigAlgo(hashSigAlgo, sha_mac, rsa_sa_algo, keySz, &idx);
     #endif
+    }
     }
 
 #ifdef HAVE_ANON
